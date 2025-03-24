@@ -129,7 +129,7 @@ $(document).ready(function () {
       formatOnType: true,
     });
 
-    // Отслеживание изменений — показываем ●
+    // Изменения → ●
     monacoEditor.onDidChangeModelContent(() => {
       if (currentFile && openFiles[currentFile]) {
         openFiles[currentFile].saved = false;
@@ -137,14 +137,14 @@ $(document).ready(function () {
       }
     });
 
-    // Обработка переключения вкладок
+    // Переключение вкладок
     $('#editor-tabs').on('click', '.nav-link', function (e) {
       e.preventDefault();
       const filename = $(this).data('filename');
       switchToFile(filename);
     });
 
-    // Кнопка Run
+    // Run
     $('#cs-modal .run-button').click(function (e) {
       e.preventDefault();
       const subj = $('#cs-subject').val();
@@ -157,7 +157,15 @@ $(document).ready(function () {
       rpccmd('cs_eval', subj, body);
     });
 
-    // RPC-событие на открытие редактора
+    // Ctrl+S → Save + Run
+    $(window).on('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        $('#cs-modal .run-button').trigger('click');
+      }
+    });
+
+    // Открытие RPC
     $('#rpc-events').on('rpc-cs_edit', function (e, subj, body) {
       if (subj) $('#cs-subject').val(subj);
       if (body) openFileTab(subj || 'file.js', fixindent(tabsize8to4, body));
@@ -170,14 +178,9 @@ $(document).ready(function () {
 $('#editor-tabs').on('click', '.tab-close', function (e) {
   e.stopPropagation();
   const filename = $(this).data('filename');
-
-  // Удалить из DOM
   $(this).closest('li').remove();
-
-  // Удалить из openFiles
   delete openFiles[filename];
 
-  // Если удалили активную вкладку — переключиться на другую
   if (currentFile === filename) {
     const firstRemaining = Object.keys(openFiles)[0];
     if (firstRemaining) {
@@ -193,10 +196,7 @@ $('#editor-tabs').on('click', '.tab-close', function (e) {
 // ===== Tabs logic =====
 function openFileTab(filename, content) {
   if (!openFiles[filename]) {
-    openFiles[filename] = {
-      value: content,
-      saved: true,
-    };
+    openFiles[filename] = { value: content, saved: true };
     $('#editor-tabs').append(`
       <li class="nav-item">
         <a class="nav-link d-flex align-items-center justify-content-between pe-1" data-filename="${filename}" href="#">
@@ -209,10 +209,16 @@ function openFileTab(filename, content) {
   switchToFile(filename);
 }
 
-function switchToFile(filename) {
+function autoSaveCurrentFile() {
   if (currentFile && openFiles[currentFile]) {
     openFiles[currentFile].value = monacoEditor.getValue();
+    openFiles[currentFile].saved = true;
+    markTabAsSaved(currentFile);
   }
+}
+
+function switchToFile(filename) {
+  autoSaveCurrentFile();
 
   currentFile = filename;
 

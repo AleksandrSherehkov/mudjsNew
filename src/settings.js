@@ -45,7 +45,6 @@ $(document).ready(function () {
     return hash;
   }
 
-  // Загружаем defaults.js
   $.ajax({
     url: 'defaults.js',
     datatype: 'text',
@@ -68,7 +67,6 @@ $(document).ready(function () {
       localStorage.defaultsHash = contentsHash;
     }
 
-    // После загрузки defaults.js создаём редактор
     loader.init().then(monaco => {
       editor = monaco.editor.create($('#settings-modal .editor')[0], {
         value: localStorage.settings || '',
@@ -89,7 +87,6 @@ $(document).ready(function () {
         formatOnType: true,
       });
 
-      // Применяем скрипт
       try {
         applySettings(editor.getValue());
       } catch (e) {
@@ -97,7 +94,6 @@ $(document).ready(function () {
         echo(e);
       }
 
-      // Обработка кнопки "Сохранить"
       $('#settings-save-button').click(function (e) {
         e.preventDefault();
 

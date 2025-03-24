@@ -129,7 +129,6 @@ $(document).ready(function () {
       formatOnType: true,
     });
 
-    // Изменения → ●
     monacoEditor.onDidChangeModelContent(() => {
       if (currentFile && openFiles[currentFile]) {
         openFiles[currentFile].saved = false;
@@ -137,7 +136,6 @@ $(document).ready(function () {
       }
     });
 
-    // Переключение вкладок
     $('#editor-tabs').on('click', '.nav-link', function (e) {
       e.preventDefault();
       const filename = $(this).data('filename');
@@ -157,7 +155,6 @@ $(document).ready(function () {
       rpccmd('cs_eval', subj, body);
     });
 
-    // Ctrl+S → Save + Run
     $(window).on('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
@@ -165,7 +162,6 @@ $(document).ready(function () {
       }
     });
 
-    // Открытие RPC
     $('#rpc-events').on('rpc-cs_edit', function (e, subj, body) {
       if (subj) $('#cs-subject').val(subj);
       if (body) openFileTab(subj || 'file.js', fixindent(tabsize8to4, body));
@@ -174,7 +170,6 @@ $(document).ready(function () {
   });
 });
 
-// Закрытие вкладки
 $('#editor-tabs').on('click', '.tab-close', function (e) {
   e.stopPropagation();
   const filename = $(this).data('filename');
@@ -193,7 +188,6 @@ $('#editor-tabs').on('click', '.tab-close', function (e) {
   }
 });
 
-// ===== Tabs logic =====
 function openFileTab(filename, content) {
   if (!openFiles[filename]) {
     openFiles[filename] = { value: content, saved: true };
@@ -229,7 +223,6 @@ function switchToFile(filename) {
   $('#cs-subject').val(filename);
 }
 
-// ===== ● Saved/Unsaved indicator =====
 function markTabAsUnsaved(filename) {
   const $tab = $(`#editor-tabs .nav-link[data-filename="${filename}"] span`);
   if (!$tab.text().startsWith('● ')) {

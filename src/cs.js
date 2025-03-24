@@ -121,13 +121,18 @@ $(document).ready(function () {
       value: '',
       language: 'javascript',
       theme: 'vs-dark',
-      fontSize: 14,
-      fontFamily: 'monospace',
+      fontSize: 16,
+      lineNumbers: 'off',
       wordWrap: 'on',
       minimap: { enabled: false },
       automaticLayout: true,
       scrollBeyondLastLine: false,
-      padding: { top: 16, bottom: 16 },
+      padding: { top: 20, bottom: 20 },
+      automaticLayout: true,
+      tabSize: 4,
+      insertSpaces: false,
+      detectIndentation: false,
+      formatOnType: true,
     });
 
     // Кнопка "Run"

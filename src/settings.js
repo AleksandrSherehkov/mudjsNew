@@ -83,6 +83,10 @@ $(document).ready(function () {
         padding: { top: 20, bottom: 20 },
         automaticLayout: true,
         minimap: { enabled: false },
+        tabSize: 4,
+        insertSpaces: false,
+        detectIndentation: true,
+        formatOnType: true,
       });
 
       // Применяем скрипт

@@ -1,8 +1,5 @@
 import $ from 'jquery';
-import 'brace';
-import 'brace/mode/javascript';
-import 'brace/theme/monokai';
-
+import loader from '@monaco-editor/loader';
 import { send } from './websock.js';
 import notify from './notify.js';
 
@@ -32,6 +29,8 @@ const applySettings = s => {
   keydown = exports.keydown;
 };
 
+let editor;
+
 $(document).ready(function () {
   function hashCode(s) {
     let hash = 0;
@@ -46,6 +45,7 @@ $(document).ready(function () {
     return hash;
   }
 
+  // Загружаем defaults.js
   $.ajax({
     url: 'defaults.js',
     datatype: 'text',
@@ -68,28 +68,41 @@ $(document).ready(function () {
       localStorage.defaultsHash = contentsHash;
     }
 
-    editor.setValue(localStorage.settings);
+    // После загрузки defaults.js создаём редактор
+    loader.init().then(monaco => {
+      editor = monaco.editor.create($('#settings-modal .editor')[0], {
+        value: localStorage.settings || '',
+        language: 'javascript',
+        theme: 'vs-dark',
+        fontSize: 16,
+        wordWrap: 'on',
+        lineNumbers: 'off',
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+        padding: { top: 20, bottom: 20 },
+        automaticLayout: true,
+        minimap: { enabled: false },
+      });
 
-    try {
-      applySettings(editor.getValue());
-    } catch (e) {
-      console.log(e);
-      echo(e);
-    }
-  });
+      // Применяем скрипт
+      try {
+        applySettings(editor.getValue());
+      } catch (e) {
+        console.log(e);
+        echo(e);
+      }
 
-  const editor = globalThis.ace.edit($('#settings-modal .editor')[0]);
-  editor.$blockScrolling = Infinity;
-  editor.setTheme('ace/theme/monokai');
-  editor.session.setMode('ace/mode/javascript');
+      // Обработка кнопки "Сохранить"
+      $('#settings-save-button').click(function (e) {
+        e.preventDefault();
 
-  $('#settings-save-button').click(function (e) {
-    e.preventDefault();
-
-    $('.trigger').off();
-    const val = editor.getValue();
-    applySettings(val);
-    localStorage.settings = val;
+        $('.trigger').off();
+        const val = editor.getValue();
+        applySettings(val);
+        localStorage.settings = val;
+      });
+    });
   });
 });
 

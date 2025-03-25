@@ -5,20 +5,47 @@ import { rpccmd } from './websock';
 
 let monacoEditor;
 
+// ⬇️ Создаём скрытый элемент для озвучки
+const ariaAnnouncer = document.createElement('div');
+ariaAnnouncer.setAttribute('id', 'aria-announce');
+ariaAnnouncer.setAttribute('aria-live', 'polite');
+ariaAnnouncer.setAttribute('role', 'status');
+ariaAnnouncer.style.position = 'absolute';
+ariaAnnouncer.style.width = '1px';
+ariaAnnouncer.style.height = '1px';
+ariaAnnouncer.style.overflow = 'hidden';
+ariaAnnouncer.style.clip = 'rect(1px, 1px, 1px, 1px)';
+ariaAnnouncer.style.clipPath = 'inset(50%)';
+document.body.appendChild(ariaAnnouncer);
+
+// Универсальный адаптивный стиль для редактора
+function getResponsiveEditorParams() {
+  const minWidth = 360;
+  const maxWidth = 1440;
+  const width = Math.max(minWidth, Math.min(window.innerWidth, maxWidth));
+  const percent = (width - minWidth) / (maxWidth - minWidth);
+
+  const fontSize = +(8 + (18 - 8) * percent).toFixed(2);
+  const lineHeight = Math.round(fontSize * 1.5);
+  const paddingValue = Math.round(0 + 20 * percent);
+
+  return {
+    fontSize,
+    lineHeight,
+    padding: { top: paddingValue, bottom: paddingValue },
+  };
+}
+
 function initHelpIds() {
   const heditLookup = $('#textedit-modal input');
 
   $.get(
     'hedit.json',
     function (data) {
-      console.log('Retrieved', data.length, 'help ids.');
-
-      const topics = $.map(data, function (dataItem) {
-        return {
-          value: dataItem.id + ': ' + dataItem.kw.toLowerCase(),
-          data: dataItem.id,
-        };
-      });
+      const topics = $.map(data, item => ({
+        value: `${item.id}: ${item.kw.toLowerCase()}`,
+        data: item.id,
+      }));
 
       heditLookup.autocomplete({
         lookup: topics,
@@ -26,38 +53,65 @@ function initHelpIds() {
         autoSelectFirst: true,
         showNoSuggestionNotice: true,
         noSuggestionNotice: 'Справка не найдена',
-        onSelect: function (suggestion) {
-          $('#textedit-modal .editor').focus();
-        },
+        onSelect: () => $('#textedit-modal .editor').focus(),
       });
     },
     'json'
-  ).fail(function () {
+  ).fail(() => {
     console.log('Cannot retrieve help ids.');
     $('#textedit-modal input').hide();
   });
 }
 
-$(document).ready(function () {
+$(document).ready(() => {
   loader.init().then(monaco => {
     const editorElement = $('#textedit-modal .editor')[0];
+    const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
 
     monacoEditor = monaco.editor.create(editorElement, {
       value: '',
+      accessibilitySupport: 'on',
       language: 'plaintext',
       theme: 'vs-dark',
-      wordWrap: 'on',
+      wordWrap: 'wordWrapColumn',
+      wordWrapColumn: 80,
+      wrappingIndent: 'same',
       lineNumbers: 'off',
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
-      fontSize: 16,
-      fontFamily: 'serif',
-      padding: { top: 20, bottom: 20 },
+      fontSize,
+      lineHeight,
+      fontFamily: 'Roboto Mono, monospace',
+      padding,
       automaticLayout: true,
-      minimap: { enabled: false },
+      rulers: [80],
+      renderWhitespace: 'boundary',
+      cursorSmoothCaretAnimation: true,
+      glyphMargin: false,
+      lineDecorationsWidth: 0,
+      folding: false,
+      renderLineHighlight: 'none',
     });
 
-    $('#rpc-events').on('rpc-editor_open', function (e, text, arg) {
+    // ✅ Добавляем отслеживание длины строки и озвучку
+    monacoEditor.onDidChangeModelContent(() => {
+      const model = monacoEditor.getModel();
+      const pos = monacoEditor.getPosition();
+      const line = model.getLineContent(pos.lineNumber);
+      if (line.length === 80) {
+        ariaAnnouncer.textContent = `Вы достигли 80 символов на строке ${pos.lineNumber}.`;
+      }
+    });
+
+    // Обновление параметров при ресайзе
+    window.addEventListener('resize', () => {
+      if (monacoEditor) {
+        const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
+        monacoEditor.updateOptions({ fontSize, lineHeight, padding });
+      }
+    });
+
+    $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
       monacoEditor.setValue(text || '');
       $('#textedit-modal').modal('show');
 
@@ -70,7 +124,7 @@ $(document).ready(function () {
 
       $('#textedit-modal .save-button')
         .off()
-        .click(function (e) {
+        .click(e => {
           e.preventDefault();
           const val = monacoEditor.getValue();
           rpccmd('editor_save', val);
@@ -78,7 +132,7 @@ $(document).ready(function () {
 
       $('#textedit-modal .cancel-button')
         .off()
-        .click(function (e) {
+        .click(e => {
           e.preventDefault();
           $('#textedit-modal').modal('hide');
         });

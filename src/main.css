@@ -386,7 +386,7 @@ td.v-bottom {
 
     min-width: 600px;
     width: 90vw;
-    max-width: 1180px;
+    max-width: 900px;
   }
 
   #textedit-modal.webeditor .editor {
@@ -430,6 +430,7 @@ td.v-bottom {
 
   #textedit-modal.webeditor .modal-body {
     width: 70vw;
+    max-width: 1000px;
   }
 
   #textedit-modal.webeditor .editor {

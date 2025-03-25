@@ -93,6 +93,40 @@ $(document).ready(() => {
       renderLineHighlight: 'none',
     });
 
+    let recognition;
+    const isSpeechRecognitionSupported =
+      'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+
+    if (isSpeechRecognitionSupported) {
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ru-RU'; // или 'uk-UA', 'en-US'
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onresult = event => {
+        const transcript = event.results[0][0].transcript;
+        const currentText = monacoEditor.getValue();
+        monacoEditor.setValue(currentText + ' ' + transcript);
+      };
+
+      recognition.onerror = event => {
+        console.error('Speech recognition error:', event.error);
+      };
+
+      recognition.onend = () => {
+        console.log('Voice input ended');
+      };
+
+      $('#start-voice').click(() => {
+        recognition.start();
+      });
+    } else {
+      console.warn('Speech recognition is not supported in this browser.');
+      $('#start-voice').hide();
+    }
+
     // ✅ Добавляем отслеживание длины строки и озвучку
     monacoEditor.onDidChangeModelContent(() => {
       const model = monacoEditor.getModel();

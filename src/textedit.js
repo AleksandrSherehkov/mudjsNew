@@ -25,7 +25,7 @@ function getResponsiveEditorParams() {
   const width = Math.max(minWidth, Math.min(window.innerWidth, maxWidth));
   const percent = (width - minWidth) / (maxWidth - minWidth);
 
-  const fontSize = +(8 + (18 - 8) * percent).toFixed(2);
+  const fontSize = +(7.5 + (18 - 7.5) * Math.pow(percent, 0.8)).toFixed(2);
   const lineHeight = Math.round(fontSize * 1.5);
   const paddingValue = Math.round(0 + 20 * percent);
 

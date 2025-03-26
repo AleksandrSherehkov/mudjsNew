@@ -310,7 +310,7 @@ td.v-bottom {
 
 /* === Базовые стили (по умолчанию — mobile) === */
 
-#textedit-modal.webeditor {
+#textedit-modal.webeditor .modal-content {
   width: 100vw;
   height: 100dvh;
   margin: 0;
@@ -319,29 +319,28 @@ td.v-bottom {
   display: flex;
   align-items: start;
   justify-content: center;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
 #textedit-modal.webeditor .modal-dialog {
   height: 100%;
   margin: 0;
 }
-
 #textedit-modal.webeditor .modal-content {
   height: 100%;
   border: 0px;
 }
 
 #textedit-modal.webeditor .modal-body {
+  width: 100%;
   height: 90dvh;
   padding: 0;
 }
 
-#textedit-modal.webeditor .editor {
-  height: 100%;
-}
-
 #textedit-modal .save-button,
-#textedit-modal .cancel-button {
+#textedit-modal .cancel-button,
+#textedit-modal .voice-button {
   width: 100%;
   margin: 0;
   border: 0px;
@@ -350,6 +349,7 @@ td.v-bottom {
 }
 
 #textedit-modal .modal-footer {
+  width: 100%;
   display: flex;
   flex-direction: column-reverse;
   align-items: baseline;
@@ -360,17 +360,13 @@ td.v-bottom {
 }
 
 /* === Планшеты (600px и выше) === */
-
 @media (min-width: 600px) {
-  #textedit-modal.webeditor {
+  #textedit-modal.webeditor .modal-content {
     height: 80vh;
     min-width: 600px;
     width: 90vw;
     max-width: 900px;
     margin: 0 auto;
-  }
-
-  #textedit-modal.webeditor .modal-dialog {
   }
 
   #textedit-modal.webeditor .modal-content {
@@ -389,11 +385,9 @@ td.v-bottom {
     max-width: 900px;
   }
 
-  #textedit-modal.webeditor .editor {
-  }
-
   #textedit-modal .save-button,
-  #textedit-modal .cancel-button {
+  #textedit-modal .cancel-button,
+  #textedit-modal .voice-button {
     width: auto;
     border-radius: 4px;
   }
@@ -411,16 +405,12 @@ td.v-bottom {
 /* === Десктоп (1280px и выше) === */
 
 @media (min-width: 1280px) {
-  #textedit-modal.webeditor {
+  #textedit-modal.webeditor .modal-content {
     height: 80vh;
 
     width: 70vw;
     max-width: 1000px;
     margin: 0 auto;
-  }
-
-  #textedit-modal.webeditor .modal-dialog {
-    width: 70vw;
   }
 
   #textedit-modal.webeditor .modal-content {
@@ -431,11 +421,10 @@ td.v-bottom {
   #textedit-modal.webeditor .modal-body {
     width: 70vw;
     max-width: 1000px;
-  }
-
-  #textedit-modal.webeditor .editor {
+    padding: 20px 30px 0px 30px;
   }
 }
+
 /* =================================================== */
 .webeditor .modal-dialog {
   max-width: 100%;

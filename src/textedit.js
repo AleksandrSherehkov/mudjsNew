@@ -2,23 +2,26 @@ import $ from 'jquery';
 import loader from '@monaco-editor/loader';
 import 'devbridge-autocomplete';
 import { rpccmd } from './websock';
+import { setupSpeechRecognition } from './speech';
 
 let monacoEditor;
+let recognition = null;
 
-// ⬇️ Создаём скрытый элемент для озвучки
+// ⬇️ Скрытый элемент для озвучки
 const ariaAnnouncer = document.createElement('div');
 ariaAnnouncer.setAttribute('id', 'aria-announce');
 ariaAnnouncer.setAttribute('aria-live', 'polite');
 ariaAnnouncer.setAttribute('role', 'status');
-ariaAnnouncer.style.position = 'absolute';
-ariaAnnouncer.style.width = '1px';
-ariaAnnouncer.style.height = '1px';
-ariaAnnouncer.style.overflow = 'hidden';
-ariaAnnouncer.style.clip = 'rect(1px, 1px, 1px, 1px)';
-ariaAnnouncer.style.clipPath = 'inset(50%)';
+Object.assign(ariaAnnouncer.style, {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  overflow: 'hidden',
+  clip: 'rect(1px, 1px, 1px, 1px)',
+  clipPath: 'inset(50%)',
+});
 document.body.appendChild(ariaAnnouncer);
 
-// Универсальный адаптивный стиль для редактора
 function getResponsiveEditorParams() {
   const minWidth = 360;
   const maxWidth = 1440;
@@ -63,6 +66,22 @@ function initHelpIds() {
   });
 }
 
+function initVoiceRecognition(monaco) {
+  if (recognition) recognition.abort();
+
+  recognition = setupSpeechRecognition({
+    lang: document.querySelector('#voice-lang').value || 'ru-RU',
+    buttonSelector: '#start-voice',
+    onResult: transcript => {
+      const currentText = monaco.getValue();
+      monaco.setValue(currentText + ' ' + transcript);
+    },
+    onError: event => {
+      console.error('Speech recognition error:', event.error);
+    },
+  });
+}
+
 $(document).ready(() => {
   loader.init().then(monaco => {
     const editorElement = $('#textedit-modal .editor')[0];
@@ -93,41 +112,13 @@ $(document).ready(() => {
       renderLineHighlight: 'none',
     });
 
-    let recognition;
-    const isSpeechRecognitionSupported =
-      'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+    initVoiceRecognition(monacoEditor);
 
-    if (isSpeechRecognitionSupported) {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
-      recognition.lang = 'ru-RU'; // или 'uk-UA', 'en-US'
-      recognition.continuous = false;
-      recognition.interimResults = false;
+    // 🔄 Перезапуск речи при смене языка
+    document.querySelector('#voice-lang').addEventListener('change', () => {
+      initVoiceRecognition(monacoEditor);
+    });
 
-      recognition.onresult = event => {
-        const transcript = event.results[0][0].transcript;
-        const currentText = monacoEditor.getValue();
-        monacoEditor.setValue(currentText + ' ' + transcript);
-      };
-
-      recognition.onerror = event => {
-        console.error('Speech recognition error:', event.error);
-      };
-
-      recognition.onend = () => {
-        console.log('Voice input ended');
-      };
-
-      $('#start-voice').click(() => {
-        recognition.start();
-      });
-    } else {
-      console.warn('Speech recognition is not supported in this browser.');
-      $('#start-voice').hide();
-    }
-
-    // ✅ Добавляем отслеживание длины строки и озвучку
     monacoEditor.onDidChangeModelContent(() => {
       const model = monacoEditor.getModel();
       const pos = monacoEditor.getPosition();
@@ -137,7 +128,6 @@ $(document).ready(() => {
       }
     });
 
-    // Обновление параметров при ресайзе
     window.addEventListener('resize', () => {
       if (monacoEditor) {
         const { fontSize, lineHeight, padding } = getResponsiveEditorParams();

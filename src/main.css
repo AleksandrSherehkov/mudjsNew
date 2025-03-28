@@ -293,8 +293,13 @@ td.v-bottom {
   }
   form#input {
     border: 1px solid #bb86fc;
-    margin: 8px 5px 10px 5px;
+
     background-color: #121212;
+  }
+
+  form#input input:focus {
+    outline: none;
+    box-shadow: none;
   }
   form#input input {
     padding: 4px 10px 4px 5px;
@@ -750,4 +755,63 @@ header.MuiPaper-root.MuiAppBar-root {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.voice-button.mic-on {
+  background-color: rgb(28, 187, 28);
+  color: white;
+}
+
+.cmdinput-voice-controls {
+  display: flex;
+  align-items: center;
+  background: #111;
+  border: 1px solid #444;
+  height: 100%;
+  gap: 0.2em;
+  padding: 0;
+}
+
+.cmdinput-voice-controls select,
+.cmdinput-voice-controls button {
+  background: #111;
+  color: #ccc;
+  border: none;
+  padding: 0 0.2em;
+  height: 100%;
+  font-size: 1em;
+  font-family: monospace;
+  cursor: pointer;
+}
+
+.cmdinput-voice-controls select:hover,
+.cmdinput-voice-controls button:hover {
+  background: #222;
+  color: #fff;
+}
+
+.cmdinput-voice-controls select:focus,
+.cmdinput-voice-controls button:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.cmdinput-voice-controls button:active,
+.cmdinput-voice-controls button.active {
+  background: #222;
+  color: lime;
+}
+
+.cmdinput-wrapper {
+  padding: 8px 0;
+  display: flex;
+  gap: 0.1em;
+}
+
+#cmd-voice.mic-on {
+  color: lime;
+}
+
+#cmd-voice-lang {
+  font-size: 1em;
 }

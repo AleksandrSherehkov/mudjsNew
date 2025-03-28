@@ -504,11 +504,17 @@
         <div class="editor" role="textbox" aria-multiline="true" aria-label="Текстовое поле редактора" tabindex="0"></div>
         <div id="textedit-live-alert" class="sr-only" aria-live="assertive" role="alert"></div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer">        
         <button type="button" class="cancel-button btn btn-secondary" data-dismiss="modal" aria-label="Закрыть редактор">Close</button>
         <button type="button" class="save-button btn btn-primary" data-dismiss="modal" aria-label="Сохранить изменения">Save</button>
         <button type="button" id="start-voice" class="voice-button btn btn-secondary" aria-label="Начать голосовой ввод">🎤 Dictate</button>
-      </div>
+      <select id="voice-lang" class="form-select btn btn-secondary" style="width: auto;" aria-label="Выбор языка">
+            <option value="en-US" selected>English</option>
+            <option value="ru-RU" >Русский</option>
+            <option value="uk-UA">Українська</option>          
+        </select>
+    
+    </div>
     </div>
   </div>
 </div>

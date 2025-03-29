@@ -18,7 +18,7 @@ function AffectBlock(props) {
 
   let rows = [];
   for (let bit in props.bitNames) {
-    if (Object.prototype.hasOwnProperty.call(bit)) {
+    if (Object.prototype.hasOwnProperty.call(props.bitNames, bit)) {
       let clr;
 
       // Draw active affect names in green, those about to

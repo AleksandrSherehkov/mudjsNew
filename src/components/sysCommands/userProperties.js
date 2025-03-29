@@ -23,7 +23,7 @@ isPgKeysScroll      - использовать ли клавишы PgUp и PgDow
 
 const setProperty = stringCmd => {
   const propertiesStorage = JSON.parse(localStorage.properties);
-  if (!Object.prototype.hasOwnProperty.call(stringCmd[0]))
+  if (!Object.prototype.hasOwnProperty.call(propertiesStorage, stringCmd[0]))
     return echoHtml('Нет такого параметра');
   let save = false;
   const propertyValueType = typeof propertiesStorage[stringCmd[0]];

@@ -7,7 +7,7 @@ import { Provider } from 'react-redux';
 import { store } from './store.js';
 
 import './main.js'; // legacy JS
-import App from './App.jsx';
+import App from './app.jsx';
 
 // Создаём тему с тёмным режимом
 const theme = createTheme({

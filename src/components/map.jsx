@@ -57,7 +57,10 @@ const useMapSource = location => {
 
 const useAreaData = () => {
   const [areaData, setAreaData] = useState({});
-  const areasUrl = `/maps/index.json`;
+  const isLocalhost = window.location.hostname === 'localhost';
+  const areasUrl = isLocalhost
+    ? '/maps/index.json'
+    : 'https://dreamland.rocks/maps/index.json';
 
   const refreshAreaData = useCallback(() => {
     console.log('Refreshing area data...');

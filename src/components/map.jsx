@@ -35,10 +35,7 @@ const useMapSource = location => {
     if (!location.area || location.area === '') return;
 
     const mapName = location.area.replace(/are$/, 'html');
-    const isLocalhost = window.location.hostname === 'localhost';
-    const mapUrl = isLocalhost
-      ? `/maps/sources/${mapName}`
-      : `https://dreamland.rocks/maps/sources/${mapName}`;
+    const mapUrl = `/maps/sources/${mapName}`;
 
     $.get(mapUrl)
       .then(map =>
@@ -60,10 +57,7 @@ const useMapSource = location => {
 
 const useAreaData = () => {
   const [areaData, setAreaData] = useState({});
-  const isLocalhost = window.location.hostname === 'localhost';
-  const areasUrl = isLocalhost
-    ? '/maps/index.json'
-    : 'https://dreamland.rocks/maps/index.json';
+  const areasUrl = `/maps/index.json`;
 
   const refreshAreaData = useCallback(() => {
     console.log('Refreshing area data...');

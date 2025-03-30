@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import { subscribeToMessages } from '../../playerMessagesStore';
 
-// 💬 Иконки по типу
 const getIcon = (type = '') => {
   switch (type) {
     case 'say':
@@ -47,14 +46,23 @@ const getIcon = (type = '') => {
 
 export default function PlayerMessages() {
   const [messages, setMessages] = useState([]);
+  const scrollRef = useRef(null);
 
   useEffect(() => {
     const unsubscribe = subscribeToMessages(setMessages);
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages]);
+
   return (
     <Box
+      ref={scrollRef}
       sx={{
         height: '100%',
         overflowY: 'auto',
@@ -70,7 +78,6 @@ export default function PlayerMessages() {
           className={`chat-line ${msg.type || ''}`}
           style={{
             fontWeight: msg.fromMe ? 'bold' : 'normal',
-
             backgroundColor: msg.fromMe ? '#222' : 'transparent',
             borderLeft: msg.fromMe ? '3px solid #66ff66' : 'none',
             paddingLeft: '0.3em',

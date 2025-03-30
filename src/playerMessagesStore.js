@@ -46,8 +46,7 @@ const handler = (e, text) => {
 
   const [, type] = found;
 
-  // 🟢 Подсветка своих сообщений
-  const isFromMe = text.startsWith('**Ты ') || text.startsWith('Ты ');
+  const isFromMe = text.startsWith('** Ты ') || text.startsWith('Ты ');
 
   globalMessages.push({ text, type, fromMe: isFromMe });
 
@@ -65,9 +64,8 @@ if (typeof window !== 'undefined' && !window._playerChatInitialized) {
   window._playerChatInitialized = true;
 }
 
-// API
 export function subscribeToMessages(callback) {
   listeners.add(callback);
-  callback([...globalMessages]); // init
+  callback([...globalMessages]);
   return () => listeners.delete(callback);
 }

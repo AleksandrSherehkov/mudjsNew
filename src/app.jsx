@@ -15,7 +15,6 @@ import PropertiesStorage from './properties';
 
 const propertiesStorage = PropertiesStorage;
 
-// 🔻 Обгортка Map з абсолютною кнопкою
 const MapWithToggle = ({ onToggleChat }) => {
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
@@ -23,15 +22,14 @@ const MapWithToggle = ({ onToggleChat }) => {
       <button
         onClick={onToggleChat}
         title="Показати/сховати чат"
-        className="btn btn-sm btn-chat btn-outline-primary"
+        className="btn-chat"
       >
-        💬 Чат
+        💬
       </button>
     </div>
   );
 };
 
-// 🔻 Основна функція для побудови layout
 const getResponsiveLayout = (bigScreen, hugeScreen) => {
   if (!bigScreen) return 'terminal';
 
@@ -78,7 +76,6 @@ export default function App() {
     setLayout(getResponsiveLayout(bigScreen, hugeScreen));
   }, [bigScreen, hugeScreen]);
 
-  // 🔻 Додати чат у layout під мапу
   const addChatToLayout = prev => {
     if (
       typeof prev !== 'object' ||
@@ -101,7 +98,6 @@ export default function App() {
     };
   };
 
-  // 🔻 Видалити чат з layout
   const removeChatFromLayout = prev => {
     if (
       typeof prev !== 'object' ||
@@ -127,7 +123,6 @@ export default function App() {
     );
   };
 
-  // 🔻 Карта компонентів
   const ELEMENT_MAP = {
     terminal: <MainWindow />,
     panel: <Panel />,

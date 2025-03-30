@@ -449,6 +449,32 @@ td.v-bottom {
   }
 }
 
+.btn-chat {
+  position: absolute;
+  bottom: 20px;
+  left: 5px;
+  z-index: 1000;
+  background-color: transparent;
+  color: #fff;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  outline: none;
+  border: 1px solid gray;
+}
+
+.btn-chat:hover {
+  background-color: #bb86fc;
+  border-color: #bb86fc;
+  color: #121212;
+}
+.btn-chat:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 .btn-ctrl {
   float: right;
   font-size: 1.5em;
@@ -827,7 +853,7 @@ header.MuiPaper-root.MuiAppBar-root {
   font-weight: bold;
 }
 .chat-line.talk {
-  color: #d384c6;
+  color: #ad84cb;
 }
 .chat-line.ooc {
   color: #24f4eb;

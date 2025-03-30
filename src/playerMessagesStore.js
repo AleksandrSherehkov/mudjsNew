@@ -42,16 +42,23 @@ const handler = (e, text) => {
   };
 
   const found = Object.entries(triggers).find(([key]) => text.includes(key));
+  if (!found) return;
 
-  if (found) {
-    const [, type] = found;
-    globalMessages.push({ text, type });
-    if (globalMessages.length > MAX_MESSAGES) {
-      globalMessages.splice(0, globalMessages.length - MAX_MESSAGES);
-    }
-    notifyListeners();
+  const [, type] = found;
+
+  // 🟢 Подсветка своих сообщений
+  const isFromMe = text.startsWith('**Ты ') || text.startsWith('Ты ');
+
+  globalMessages.push({ text, type, fromMe: isFromMe });
+
+  if (globalMessages.length > MAX_MESSAGES) {
+    globalMessages.splice(0, globalMessages.length - MAX_MESSAGES);
   }
+
+  notifyListeners();
 };
+
+export const clearMessages = () => {};
 
 if (typeof window !== 'undefined' && !window._playerChatInitialized) {
   $('.trigger').on('text', handler);

@@ -811,3 +811,62 @@ header.MuiPaper-root.MuiAppBar-root {
 #cmd-voice-lang {
   font-size: 1em;
 }
+
+.chat-line {
+  margin-bottom: 4px;
+}
+
+.chat-line.say {
+  color: #389a06;
+}
+.chat-line.pronounce {
+  color: #7ee34f;
+}
+.chat-line.shout {
+  color: #ed2330;
+  font-weight: bold;
+}
+.chat-line.talk {
+  color: #d384c6;
+}
+.chat-line.ooc {
+  color: #24f4eb;
+  font-style: italic;
+}
+.chat-line.sing {
+  color: #24f4eb;
+}
+.chat-line.congrats {
+  color: #c784cb;
+}
+
+.chat-line.clan-shalafi {
+  color: #357ce6;
+}
+.chat-line.clan-invader {
+  color: #555749;
+}
+.chat-line.clan-battlerager {
+  color: #ed2330;
+}
+.chat-line.clan-knight {
+  color: #eeeee0;
+}
+.chat-line.clan-ruler {
+  color: #d3d7cf;
+}
+.chat-line.clan-chaos {
+  color: #d384ae;
+}
+.chat-line.clan-hunter {
+  color: #fdde45;
+}
+.chat-line.clan-lion {
+  color: #429a06;
+}
+.chat-line.clan-ghost {
+  color: #069880;
+}
+.chat-line.clan-flowers {
+  color: #75e34f;
+}

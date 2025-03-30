@@ -14,37 +14,38 @@ const notifyListeners = () => {
 
 // Працює постійно незалежно від монтованих компонентів
 const handler = (e, text) => {
-  const triggers = [
-    'говоришь',
-    'говорит',
-    'произносишь',
-    'произносит',
-    'внероли',
-    'ПОЕТ',
-    'ПОЕШ',
-    'кричишь',
-    'кричит',
-    'болтаешь',
-    'болтает',
-    'OOC',
-    'поздравляешь',
-    'поздравляет',
-    'SHALAFI',
-    'INVADER',
-    'BATTLERAGER',
-    'KNIGHT',
-    'RULER',
-    'CHAOS',
-    'HUNTER',
-    'LION',
-    'GHOST',
-    'FLOWER CHILDREN',
-  ];
+  const triggers = {
+    говоришь: 'say',
+    говорит: 'say',
+    произносишь: 'pronounce',
+    произносит: 'pronounce',
+    внероли: 'ooc',
+    ПОЕТ: 'sing',
+    ПОЕШ: 'sing',
+    кричишь: 'shout',
+    кричит: 'shout',
+    болтаешь: 'talk',
+    болтает: 'talk',
+    OOC: 'ooc',
+    поздравляешь: 'congrats',
+    поздравляет: 'congrats',
+    SHALAFI: 'clan-shalafi',
+    INVADER: 'clan-invader',
+    BATTLERAGER: 'clan-battlerager',
+    KNIGHT: 'clan-knight',
+    RULER: 'clan-ruler',
+    CHAOS: 'clan-chaos',
+    HUNTER: 'clan-hunter',
+    LION: 'clan-lion',
+    GHOST: 'clan-ghost',
+    'FLOWER CHILDREN': 'clan-flowers',
+  };
 
-  const matchesTrigger = triggers.some(trigger => text.includes(trigger));
+  const found = Object.entries(triggers).find(([key]) => text.includes(key));
 
-  if (matchesTrigger) {
-    globalMessages.push(text);
+  if (found) {
+    const [, type] = found;
+    globalMessages.push({ text, type });
     if (globalMessages.length > MAX_MESSAGES) {
       globalMessages.splice(0, globalMessages.length - MAX_MESSAGES);
     }

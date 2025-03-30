@@ -22,7 +22,9 @@ export default function PlayerMessages() {
       }}
     >
       {messages.map((msg, i) => (
-        <div key={i}>{msg}</div>
+        <div key={i} className={`chat-line ${msg.type || ''}`}>
+          {msg.text}
+        </div>
       ))}
     </Box>
   );

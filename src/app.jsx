@@ -149,6 +149,8 @@ export default function App() {
         }}
       >
         <Mosaic
+          role="main"
+          aria-label="Ігровий інтерфейс"
           value={layout}
           onChange={setLayout}
           renderTile={(id, path) => (

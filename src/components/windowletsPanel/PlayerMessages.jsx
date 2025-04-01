@@ -63,6 +63,9 @@ export default function PlayerMessages() {
   return (
     <Box
       ref={scrollRef}
+      role="log"
+      aria-live="polite"
+      aria-label="Ігровий чат"
       sx={{
         height: '100%',
         overflowY: 'auto',

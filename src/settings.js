@@ -95,7 +95,7 @@ $(document).ready(function () {
       $('#settings-save-button').click(function (e) {
         e.preventDefault();
 
-        $('.trigger').off();
+        $('.trigger').off('input.myNamespace text.myNamespace');
         const val = editor.getValue();
         applySettings(val);
         localStorage.settings = val;

@@ -1,5 +1,29 @@
 import React from 'react';
 import PanelItem from './panelItem';
+import {
+  FaTree,
+  FaCity,
+  FaMountain,
+  FaWater,
+  FaWind,
+  FaFire,
+  FaHome,
+  FaSwimmingPool,
+  FaLeaf,
+  FaQuestionCircle,
+  FaSeedling,
+} from 'react-icons/fa';
+
+import { MdScubaDiving } from 'react-icons/md';
+import { MdPool } from 'react-icons/md';
+import { TiWeatherWindyCloudy } from 'react-icons/ti';
+import { GiForest } from 'react-icons/gi';
+import { GiDesert } from 'react-icons/gi';
+import { PiCityFill } from 'react-icons/pi';
+import { GiWheat } from 'react-icons/gi';
+import { GiHills } from 'react-icons/gi';
+import { TbSailboat } from 'react-icons/tb';
+import { PiMountainsBold } from 'react-icons/pi';
 
 // Prompt zone field: string with area name.
 const ZoneRow = ({ zone }) => {
@@ -71,11 +95,47 @@ const ExitsRow = ({ e, h, l }) => {
 };
 
 // Sector type info: i - sector icon unicode, n - sector name
+const getSectorIcon = sectorName => {
+  console.log(` sectorName:`, sectorName);
+  const firstWord = sectorName
+    ?.split(',')[0]
+    .trim()
+    .replace(/[()]/g, '')
+    .toLowerCase();
+  console.log(` sectorName:`, firstWord);
+  switch (firstWord) {
+    case 'внутри':
+      return <FaHome size={19} />;
+    case 'город':
+      return <PiCityFill size={20} />;
+    case 'поле':
+      return <GiWheat size={22} />;
+    case 'лес':
+      return <GiForest size={22} />;
+    case 'холмы':
+      return <GiHills size={21} />;
+    case 'горы':
+      return <PiMountainsBold size={21} />;
+    case 'мелководье':
+      return <MdPool size={23} />;
+    case 'глубоководье':
+      return <TbSailboat size={23} />;
+    case 'воздух':
+      return <TiWeatherWindyCloudy size={23} />;
+    case 'пустыня':
+      return <GiDesert size={21} />;
+    case 'под водой':
+      return <MdScubaDiving size={23} />;
+    default:
+      return <FaQuestionCircle />;
+  }
+};
+
 const SectorRow = ({ n }) => {
   return (
     <tr>
-      <td className="v-top">
-        &nbsp;<i className="fa">&#xf1bb;</i>
+      <td className="v-top" aria-label={`Иконка сектора ${n}`}>
+        &nbsp;{getSectorIcon(n)}
       </td>
       <td className="v-bottom">{n}&nbsp;</td>
     </tr>

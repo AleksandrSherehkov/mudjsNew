@@ -46,8 +46,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (rpcEvents) {
     rpcEvents.addEventListener('rpc-console_out', function (e) {
-      const b = e.detail;
-      telnet.process(b);
+      const b = e.detail[0];
+      if (typeof b === 'string') {
+        telnet.process(b);
+      }
     });
 
     rpcEvents.addEventListener('rpc-alert', function (e) {

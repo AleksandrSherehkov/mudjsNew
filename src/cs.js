@@ -1,3 +1,4 @@
+import $ from 'jquery';
 import loader from '@monaco-editor/loader';
 import { rpccmd } from './websock.js';
 
@@ -23,7 +24,7 @@ let monacoEditor;
 let openFiles = {}; // { filename: { value: 'code', saved: true } }
 let currentFile = null;
 
-document.addEventListener('DOMContentLoaded', function () {
+$(document).ready(function () {
   loader.init().then(monaco => {
     // 🧠 Регистрация языка "fenia"
     monaco.languages.register({ id: 'fenia' });
@@ -116,7 +117,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // 👇 Установка редактора с языком "fenia"
-    const editorElement = document.querySelector('#cs-modal .editor');
+    const editorElement = $('#cs-modal .editor')[0];
     monacoEditor = monaco.editor.create(editorElement, {
       value: '',
       language: 'fenia',
@@ -141,116 +142,74 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    const editorTabs = document.getElementById('editor-tabs');
-    if (editorTabs) {
-      editorTabs.addEventListener('click', function (e) {
-        if (e.target.classList.contains('nav-link')) {
-          e.preventDefault();
-          const filename = e.target.getAttribute('data-filename');
-          switchToFile(filename);
-        }
-      });
-    }
+    $('#editor-tabs').on('click', '.nav-link', function (e) {
+      e.preventDefault();
+      const filename = $(this).data('filename');
+      switchToFile(filename);
+    });
 
-    const runButton = document.querySelector('#cs-modal .run-button');
-    if (runButton) {
-      runButton.addEventListener('click', function (e) {
-        e.preventDefault();
-        const subjElement = document.getElementById('cs-subject');
-        const subj = subjElement ? subjElement.value : '';
-        if (currentFile) {
-          openFiles[currentFile].value = monacoEditor.getValue();
-          openFiles[currentFile].saved = true;
-          markTabAsSaved(currentFile);
-        }
-        const body = fixindent(tabsize4to8, monacoEditor.getValue());
-        rpccmd('cs_eval', subj, body);
-      });
-    }
+    $('#cs-modal .run-button').click(function (e) {
+      e.preventDefault();
+      const subj = $('#cs-subject').val();
+      if (currentFile) {
+        openFiles[currentFile].value = monacoEditor.getValue();
+        openFiles[currentFile].saved = true;
+        markTabAsSaved(currentFile);
+      }
+      const body = fixindent(tabsize4to8, monacoEditor.getValue());
+      rpccmd('cs_eval', subj, body);
+    });
 
-    window.addEventListener('keydown', function (e) {
+    $(window).on('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        const runButton = document.querySelector('#cs-modal .run-button');
-        if (runButton) {
-          runButton.click();
-        }
+        $('#cs-modal .run-button').trigger('click');
       }
     });
 
-    const rpcEvents = document.getElementById('rpc-events');
-    if (rpcEvents) {
-      rpcEvents.addEventListener('rpc-cs_edit', function (e) {
-        const [subj, body] = e.detail;
-        const subjElement = document.getElementById('cs-subject');
-        if (subj && subjElement) subjElement.value = subj;
-        if (body) openFileTab(subj || 'file.fenia', fixindent(tabsize8to4, body));
-        
-        const modal = document.getElementById('cs-modal');
-        if (modal) {
-          if (window.bootstrap && window.bootstrap.Modal) {
-            const bootstrapModal = new window.bootstrap.Modal(modal);
-            bootstrapModal.show();
-          } else {
-            modal.style.display = 'block';
-            modal.classList.add('show');
-          }
-        }
-      });
-    }
+    $('#rpc-events').on('rpc-cs_edit', function (e, subj, body) {
+      if (subj) $('#cs-subject').val(subj);
+      if (body) openFileTab(subj || 'file.fenia', fixindent(tabsize8to4, body));
+      $('#cs-modal').modal('show');
+    });
   });
 });
 
-document.addEventListener('DOMContentLoaded', function () {
-  const editorTabs = document.getElementById('editor-tabs');
-  if (editorTabs) {
-    editorTabs.addEventListener('click', function (e) {
-      if (e.target.classList.contains('tab-close')) {
-        e.stopPropagation();
-        const filename = e.target.getAttribute('data-filename');
-        const tabItem = e.target.closest('li');
-        if (tabItem) {
-          tabItem.remove();
-        }
-        delete openFiles[filename];
+$('#editor-tabs').on('click', '.tab-close', function (e) {
+  e.stopPropagation();
+  const filename = $(this).data('filename');
+  $(this).closest('li').remove();
+  delete openFiles[filename];
 
-        if (currentFile === filename) {
-          const firstRemaining = Object.keys(openFiles)[0];
-          if (firstRemaining) {
-            switchToFile(firstRemaining);
-          } else {
-            if (monacoEditor) monacoEditor.setValue('');
-            currentFile = null;
-            const subjElement = document.getElementById('cs-subject');
-            if (subjElement) subjElement.value = '';
-          }
-        }
-      }
-    });
+  if (currentFile === filename) {
+    const firstRemaining = Object.keys(openFiles)[0];
+    if (firstRemaining) {
+      switchToFile(firstRemaining);
+    } else {
+      monacoEditor.setValue('');
+      currentFile = null;
+      $('#cs-subject').val('');
+    }
   }
 });
 
 function openFileTab(filename, content) {
   if (!openFiles[filename]) {
     openFiles[filename] = { value: content, saved: true };
-    const editorTabs = document.getElementById('editor-tabs');
-    if (editorTabs) {
-      const tabHTML = `
-        <li class="nav-item">
-          <a class="nav-link d-flex align-items-center justify-content-between pe-1" data-filename="${filename}" href="#">
-            <span>${filename}</span>
-            <button class="btn btn-sm btn-link text-danger tab-close" data-filename="${filename}" style="padding: 0 4px;">✖</button>
-          </a>
-        </li>
-      `;
-      editorTabs.insertAdjacentHTML('beforeend', tabHTML);
-    }
+    $('#editor-tabs').append(`
+      <li class="nav-item">
+        <a class="nav-link d-flex align-items-center justify-content-between pe-1" data-filename="${filename}" href="#">
+          <span>${filename}</span>
+          <button class="btn btn-sm btn-link text-danger tab-close" data-filename="${filename}" style="padding: 0 4px;">✖</button>
+        </a>
+      </li>
+    `);
   }
   switchToFile(filename);
 }
 
 function autoSaveCurrentFile() {
-  if (currentFile && openFiles[currentFile] && monacoEditor) {
+  if (currentFile && openFiles[currentFile]) {
     openFiles[currentFile].value = monacoEditor.getValue();
     openFiles[currentFile].saved = true;
     markTabAsSaved(currentFile);
@@ -262,34 +221,21 @@ function switchToFile(filename) {
 
   currentFile = filename;
 
-  const allTabs = document.querySelectorAll('#editor-tabs .nav-link');
-  allTabs.forEach(tab => tab.classList.remove('active'));
-  
-  const currentTab = document.querySelector(`#editor-tabs .nav-link[data-filename="${filename}"]`);
-  if (currentTab) {
-    currentTab.classList.add('active');
-  }
+  $('#editor-tabs .nav-link').removeClass('active');
+  $(`#editor-tabs .nav-link[data-filename="${filename}"]`).addClass('active');
 
-  if (monacoEditor) {
-    monacoEditor.setValue(openFiles[filename].value);
-  }
-  
-  const subjElement = document.getElementById('cs-subject');
-  if (subjElement) {
-    subjElement.value = filename;
-  }
+  monacoEditor.setValue(openFiles[filename].value);
+  $('#cs-subject').val(filename);
 }
 
 function markTabAsUnsaved(filename) {
-  const tab = document.querySelector(`#editor-tabs .nav-link[data-filename="${filename}"] span`);
-  if (tab && !tab.textContent.startsWith('● ')) {
-    tab.textContent = '● ' + filename;
+  const $tab = $(`#editor-tabs .nav-link[data-filename="${filename}"] span`);
+  if (!$tab.text().startsWith('● ')) {
+    $tab.text('● ' + filename);
   }
 }
 
 function markTabAsSaved(filename) {
-  const tab = document.querySelector(`#editor-tabs .nav-link[data-filename="${filename}"] span`);
-  if (tab) {
-    tab.textContent = filename;
-  }
+  const $tab = $(`#editor-tabs .nav-link[data-filename="${filename}"] span`);
+  $tab.text(filename);
 }

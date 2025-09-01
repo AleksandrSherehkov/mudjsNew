@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MicIcon from '@mui/icons-material/Mic';
 import { useSelector } from 'react-redux';
+import $ from 'jquery';
 import { echo } from '../input';
 import { send, connect } from '../websock';
 import { getKeydown } from '../settings';
@@ -24,24 +25,18 @@ const input_history = localStorage.history
 let position = input_history.length;
 let current_cmd = '';
 
-document.addEventListener('DOMContentLoaded', function() {
-  document.body.addEventListener('click', function (e) {
-    const target = e.target.closest('.builtin-cmd');
-    if (target) {
-      const { sysCmd, sysCmdArgs } = splitCommand(target.getAttribute('data-action'));
-      const command = getSystemCmd(sysCmd);
-      echo(target.getAttribute('data-echo'));
-      if (!command) return errCmdDoesNotExist;
-      Commands[command]['payload'](sysCmdArgs);
-    }
-  });
+$('body').on('click', '.builtin-cmd', function (e) {
+  const cmd = $(e.currentTarget);
+  const { sysCmd, sysCmdArgs } = splitCommand(cmd.attr('data-action'));
+  const command = getSystemCmd(sysCmd);
+  echo(cmd.attr('data-echo'));
+  if (!command) return errCmdDoesNotExist;
+  Commands[command]['payload'](sysCmdArgs);
 });
 
 const scrollPage = dir => {
-  const wrap = document.querySelector('.terminal-wrap');
-  if (wrap) {
-    wrap.scrollTop = wrap.scrollTop + wrap.clientHeight * dir;
-  }
+  const wrap = $('.terminal-wrap');
+  wrap.scrollTop(wrap.scrollTop() + wrap.height() * dir);
 };
 
 const CmdInput = () => {
@@ -83,15 +78,12 @@ const CmdInput = () => {
   useEffect(() => {
     const handleKey = e => {
       if (e.which === 9) return;
-      const input = document.querySelector('#input input');
-      const modalOpen = document.querySelector('body.modal-open');
-      if (modalOpen) return;
+      const input = $('#input input');
+      if ($('body.modal-open').length !== 0) return;
 
       if (!sendHotKeyCmd(e)) {
         if (e.ctrlKey || e.altKey) return;
-        const helpInput = document.querySelector('#help input');
-        if ((input && input === document.activeElement) || 
-            (helpInput && helpInput === document.activeElement)) return;
+        if (input.is(':focus') || $('#help input').is(':focus')) return;
 
         if (document.getElementById('inputBox')) {
           textInput.current.focus();
@@ -249,13 +241,9 @@ const CmdInput = () => {
     }
 
     const lines = userCommand.split('\n');
-    lines.forEach(function (line) {
-      echo(line);
-      const trigger = document.querySelector('.trigger');
-      if (trigger) {
-        const event = new CustomEvent('input', { detail: line });
-        trigger.dispatchEvent(event);
-      }
+    $(lines).each(function () {
+      echo(this);
+      $('.trigger').trigger('input', [this]);
     });
   };
 

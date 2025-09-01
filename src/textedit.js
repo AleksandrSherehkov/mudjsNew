@@ -1,3 +1,4 @@
+import $ from 'jquery';
 import loader from '@monaco-editor/loader';
 import 'devbridge-autocomplete';
 import { rpccmd } from './websock';
@@ -39,36 +40,30 @@ function getResponsiveEditorParams() {
 }
 
 function initHelpIds() {
-  const heditLookup = document.querySelector('#textedit-modal input');
+  const heditLookup = $('#textedit-modal input');
 
-  fetch('hedit.json')
-    .then(response => response.json())
-    .then(function (data) {
-      const topics = data.map(item => ({
+  $.get(
+    'hedit.json',
+    function (data) {
+      const topics = $.map(data, item => ({
         value: `${item.id}: ${item.kw.toLowerCase()}`,
         data: item.id,
       }));
 
-      // Note: This requires devbridge-autocomplete to work with vanilla JS
-      // or we need to find an alternative autocomplete library
-      if (heditLookup && window.jQuery) {
-        window.jQuery(heditLookup).autocomplete({
-          lookup: topics,
-          lookupLimit: 20,
-          autoSelectFirst: true,
-          showNoSuggestionNotice: true,
-          noSuggestionNotice: 'Справка не найдена',
-          onSelect: () => document.querySelector('#textedit-modal .editor').focus(),
-        });
-      }
-    })
-    .catch(() => {
-      console.log('Cannot retrieve help ids.');
-      const input = document.querySelector('#textedit-modal input');
-      if (input) {
-        input.style.display = 'none';
-      }
-    });
+      heditLookup.autocomplete({
+        lookup: topics,
+        lookupLimit: 20,
+        autoSelectFirst: true,
+        showNoSuggestionNotice: true,
+        noSuggestionNotice: 'Справка не найдена',
+        onSelect: () => $('#textedit-modal .editor').focus(),
+      });
+    },
+    'json'
+  ).fail(() => {
+    console.log('Cannot retrieve help ids.');
+    $('#textedit-modal input').hide();
+  });
 }
 
 function initVoiceRecognition(monaco) {
@@ -87,9 +82,9 @@ function initVoiceRecognition(monaco) {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+$(document).ready(() => {
   loader.init().then(monaco => {
-    const editorElement = document.querySelector('#textedit-modal .editor');
+    const editorElement = $('#textedit-modal .editor')[0];
     const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
 
     monacoEditor = monaco.editor.create(editorElement, {
@@ -120,12 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initVoiceRecognition(monacoEditor);
 
     // 🔄 Перезапуск речи при смене языка
-    const voiceLang = document.querySelector('#voice-lang');
-    if (voiceLang) {
-      voiceLang.addEventListener('change', () => {
-        initVoiceRecognition(monacoEditor);
-      });
-    }
+    document.querySelector('#voice-lang').addEventListener('change', () => {
+      initVoiceRecognition(monacoEditor);
+    });
 
     monacoEditor.onDidChangeModelContent(() => {
       const model = monacoEditor.getModel();
@@ -143,65 +135,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    const rpcEvents = document.getElementById('rpc-events');
-    if (rpcEvents) {
-      rpcEvents.addEventListener('rpc-editor_open', (e) => {
-        const text = e.detail[0];
-        const arg = e.detail[1];
-        
-        monacoEditor.setValue(text || '');
-        const modal = document.getElementById('textedit-modal');
-        if (modal) {
-          // For Bootstrap 4 modal
-          if (window.bootstrap && window.bootstrap.Modal) {
-            const bootstrapModal = new window.bootstrap.Modal(modal);
-            bootstrapModal.show();
-          } else {
-            modal.style.display = 'block';
-            modal.classList.add('show');
-          }
-        }
+    $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
+      monacoEditor.setValue(text || '');
+      $('#textedit-modal').modal('show');
 
-        const input = document.querySelector('#textedit-modal input');
-        if (arg === 'help') {
-          if (input) input.style.display = 'block';
-          initHelpIds();
-        } else {
-          if (input) input.style.display = 'none';
-        }
+      if (arg === 'help') {
+        $('#textedit-modal input').show();
+        initHelpIds();
+      } else {
+        $('#textedit-modal input').hide();
+      }
 
-        const saveButton = document.querySelector('#textedit-modal .save-button');
-        const cancelButton = document.querySelector('#textedit-modal .cancel-button');
+      $('#textedit-modal .save-button')
+        .off()
+        .click(e => {
+          e.preventDefault();
+          const val = monacoEditor.getValue();
+          rpccmd('editor_save', val);
+        });
 
-        if (saveButton) {
-          // Remove existing listeners
-          const newSaveButton = saveButton.cloneNode(true);
-          saveButton.parentNode.replaceChild(newSaveButton, saveButton);
-          
-          newSaveButton.addEventListener('click', e => {
-            e.preventDefault();
-            const val = monacoEditor.getValue();
-            rpccmd('editor_save', val);
-          });
-        }
-
-        if (cancelButton) {
-          // Remove existing listeners
-          const newCancelButton = cancelButton.cloneNode(true);
-          cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
-          
-          newCancelButton.addEventListener('click', e => {
-            e.preventDefault();
-            if (window.bootstrap && window.bootstrap.Modal) {
-              const bootstrapModal = window.bootstrap.Modal.getInstance(modal);
-              if (bootstrapModal) bootstrapModal.hide();
-            } else {
-              modal.style.display = 'none';
-              modal.classList.remove('show');
-            }
-          });
-        }
-      });
-    }
+      $('#textedit-modal .cancel-button')
+        .off()
+        .click(e => {
+          e.preventDefault();
+          $('#textedit-modal').modal('hide');
+        });
+    });
   });
 });

@@ -1,4 +1,3 @@
-import $ from 'jquery';
 import PropertiesStorage from './properties';
 import { connect } from './websock';
 import lastLocation from './location';
@@ -17,71 +16,76 @@ import './main.css';
 const sessionId = getSessionId();
 let propertiesStorage = PropertiesStorage;
 
-$(window).bind('beforeunload', function () {
+window.addEventListener('beforeunload', function () {
   return 'leaving already?';
 });
 
-$(document).ready(function () {
-  $('#logs-button').click(function (e) {
-    var logs = [];
+document.addEventListener('DOMContentLoaded', function () {
+  const logsButton = document.getElementById('logs-button');
+  if (logsButton) {
+    logsButton.addEventListener('click', function (e) {
+      var logs = [];
 
-    e.preventDefault();
+      e.preventDefault();
 
-    historydb
-      .then(function (db) {
-        return db.load(null, false, 100000000, function (key, value) {
-          logs.push(value);
+      historydb
+        .then(function (db) {
+          return db.load(null, false, 100000000, function (key, value) {
+            logs.push(value);
+          });
+        })
+        .then(function () {
+          var blobOpts = { type: 'text/html' },
+            blob = new Blob(logs, blobOpts),
+            url = URL.createObjectURL(blob);
+
+          logs = null;
+
+          // create a link
+          var link = document.createElement('a');
+          link.href = url;
+          link.download = 'mudjs.log';
+
+          // click on it
+          setTimeout(function () {
+            var event = document.createEvent('MouseEvents');
+            event.initMouseEvent(
+              'click',
+              true,
+              true,
+              window,
+              1,
+              0,
+              0,
+              0,
+              0,
+              false,
+              false,
+              false,
+              false,
+              0,
+              null
+            );
+            link.dispatchEvent(event);
+          }, 10);
         });
-      })
-      .then(function () {
-        var blobOpts = { type: 'text/html' },
-          blob = new Blob(logs, blobOpts),
-          url = URL.createObjectURL(blob);
+    });
+  }
 
-        logs = null;
+  const mapButton = document.getElementById('map-button');
+  if (mapButton) {
+    mapButton.addEventListener('click', function (e) {
+      e.preventDefault();
 
-        // create a link
-        var link = $('<a>').attr({
-          href: url,
-          download: 'mudjs.log',
-        })[0];
+      if (!lastLocation()) {
+        return;
+      }
 
-        // click on it
-        setTimeout(function () {
-          var event = document.createEvent('MouseEvents');
-          event.initMouseEvent(
-            'click',
-            true,
-            true,
-            window,
-            1,
-            0,
-            0,
-            0,
-            0,
-            false,
-            false,
-            false,
-            false,
-            0,
-            null
-          );
-          link.dispatchEvent(event);
-        }, 10);
-      });
-  });
-
-  $('#map-button').click(function (e) {
-    e.preventDefault();
-
-    if (!lastLocation()) {
-      return;
-    }
-
-    var basefilename = lastLocation().area.replace(/\.are$/, '');
-    var mapfile = '/maps/' + basefilename + '.html?sessionId=' + sessionId;
-    window.open(mapfile);
-  });
+      var basefilename = lastLocation().area.replace(/\.are$/, '');
+      var mapfile = '/maps/' + basefilename + '.html?sessionId=' + sessionId;
+      window.open(mapfile);
+    });
+  }
 
   connect();
   initTerminalFontSize();
@@ -93,10 +97,12 @@ $(document).ready(function () {
   var terminalFontSizeKey = 'terminalFontSize';
 
   function changeFontSize(delta) {
-    var terminal = $('.terminal');
-    var style = terminal.css('font-size');
+    var terminal = document.querySelector('.terminal');
+    if (!terminal) return;
+    
+    var style = window.getComputedStyle(terminal).fontSize;
     var fontSize = parseFloat(style);
-    terminal.css('font-size', fontSize + delta + 'px');
+    terminal.style.fontSize = (fontSize + delta) + 'px';
     localStorage.setItem(terminalFontSizeKey, fontSize + delta);
     propertiesStorage['terminalFontSize'] = fontSize + delta;
     localStorage.properties = JSON.stringify(propertiesStorage);
@@ -107,30 +113,44 @@ $(document).ready(function () {
       ? JSON.parse(localStorage.properties)['terminalFontSize']
       : propertiesStorage;
     if (cacheFontSize != null) {
-      var terminal = $('.terminal');
-      terminal.css('font-size', cacheFontSize + 'px');
+      var terminal = document.querySelector('.terminal');
+      if (terminal) {
+        terminal.style.fontSize = cacheFontSize + 'px';
+      }
     }
   }
 
-  $('#font-plus-button').click(function (e) {
-    e.preventDefault();
-    changeFontSize(fontDelta);
-  });
+  const fontPlusButton = document.getElementById('font-plus-button');
+  if (fontPlusButton) {
+    fontPlusButton.addEventListener('click', function (e) {
+      e.preventDefault();
+      changeFontSize(fontDelta);
+    });
+  }
 
-  $('#font-minus-button').click(function (e) {
-    e.preventDefault();
-    changeFontSize(-fontDelta);
-  });
+  const fontMinusButton = document.getElementById('font-minus-button');
+  if (fontMinusButton) {
+    fontMinusButton.addEventListener('click', function (e) {
+      e.preventDefault();
+      changeFontSize(-fontDelta);
+    });
+  }
 
   /* Save layout size */
-  $('.layout-splitter').on('click', function () {
-    propertiesStorage['terminalLayoutWidth'] =
-      document.querySelector('.terminal-wrap').getBoundingClientRect().width ||
-      0;
-    propertiesStorage['panelLayoutWidth'] =
-      document.querySelector('#panel-wrap').getBoundingClientRect().width || 0;
-    propertiesStorage['mapLayoutWidth'] =
-      document.querySelector('#map-wrap').getBoundingClientRect().width || 0;
-    localStorage.properties = JSON.stringify(propertiesStorage);
-  });
+  const layoutSplitter = document.querySelector('.layout-splitter');
+  if (layoutSplitter) {
+    layoutSplitter.addEventListener('click', function () {
+      const terminalWrap = document.querySelector('.terminal-wrap');
+      const panelWrap = document.querySelector('#panel-wrap');
+      const mapWrap = document.querySelector('#map-wrap');
+      
+      propertiesStorage['terminalLayoutWidth'] =
+        terminalWrap?.getBoundingClientRect().width || 0;
+      propertiesStorage['panelLayoutWidth'] =
+        panelWrap?.getBoundingClientRect().width || 0;
+      propertiesStorage['mapLayoutWidth'] =
+        mapWrap?.getBoundingClientRect().width || 0;
+      localStorage.properties = JSON.stringify(propertiesStorage);
+    });
+  }
 });

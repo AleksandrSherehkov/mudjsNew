@@ -1,4 +1,3 @@
-import $ from 'jquery';
 import areasJson from './data/areas.json';
 import { send, ws } from './websock.js';
 import { echo } from './input.js';
@@ -6,65 +5,80 @@ import { echo } from './input.js';
 // Create the list of all possible area file names (without ".are" bit).
 const areas = areasJson.map(a => a.file.replace('.are', ''));
 
-$(document).ready(function () {
+document.addEventListener('DOMContentLoaded', function () {
   // Control panel buttons.
-  $('body').on('click', '.btn-ctrl-panel', function (e) {
-    var cmd = $(e.currentTarget).attr('data-action');
-    var conf = $(e.currentTarget).attr('data-confirm');
+  document.body.addEventListener('click', function (e) {
+    const target = e.target.closest('.btn-ctrl-panel');
+    if (target) {
+      const cmd = target.getAttribute('data-action');
+      const conf = target.getAttribute('data-confirm');
 
-    if (
-      conf !== undefined &&
-      !window.confirm('Вы действительно хотите ' + conf + '?')
-    )
-      return;
+      if (
+        conf !== undefined &&
+        !window.confirm('Вы действительно хотите ' + conf + '?')
+      )
+        return;
 
-    echo(cmd);
-    send(cmd);
+      echo(cmd);
+      send(cmd);
+    }
   });
 
   // Send comman to the server when command hyper link is clicked
   // e. g. 'read sign' or 'walk trap'.
-  $('body').on('click', '.manip-cmd', function (e) {
-    var cmd = $(e.currentTarget);
-    echo(cmd.attr('data-echo'));
-    send(cmd.attr('data-action'));
+  document.body.addEventListener('click', function (e) {
+    const target = e.target.closest('.manip-cmd');
+    if (target) {
+      echo(target.getAttribute('data-echo'));
+      send(target.getAttribute('data-action'));
+    }
   });
 
   // Send command to the server when individual menu item is clicked.
-  $('body').on('click', '.manip-item', function (e) {
-    var cmd = $(e.currentTarget);
-    echo(cmd.attr('data-echo'));
-    send(cmd.attr('data-action'));
+  document.body.addEventListener('click', function (e) {
+    const target = e.target.closest('.manip-item');
+    if (target) {
+      echo(target.getAttribute('data-echo'));
+      send(target.getAttribute('data-action'));
+    }
   });
 
   // Underline current selection when dropdown is shown.
-  $('body').on('show.bs.dropdown', '.dropdown', function (e) {
-    $(e.relatedTarget).css('text-decoration', 'underline');
+  document.body.addEventListener('show.bs.dropdown', function (e) {
+    if (e.relatedTarget) {
+      e.relatedTarget.style.textDecoration = 'underline';
+    }
   });
 
   // Remove underline when dropdown is hidden.
-  $('body').on('hide.bs.dropdown', '.dropdown', function (e) {
-    $(e.relatedTarget).removeAttr('style');
+  document.body.addEventListener('hide.bs.dropdown', function (e) {
+    if (e.relatedTarget) {
+      e.relatedTarget.removeAttribute('style');
+    }
   });
 });
 
 // Replace colour "<c c='fgbr'/>" tags coming from the server with spans.
 function colorParseAndReplace(span) {
-  span.find('c').each(function () {
-    var style = $(this).attr('c');
-    $(this).replaceWith(function () {
-      var result = $('<span/>').append($(this).contents());
-      result.addClass(style);
-      return result;
-    });
+  const colorElements = span.querySelectorAll('c');
+  colorElements.forEach(function (element) {
+    const style = element.getAttribute('c');
+    const newSpan = document.createElement('span');
+    newSpan.className = style;
+    
+    // Move all child nodes from the old element to the new span
+    while (element.firstChild) {
+      newSpan.appendChild(element.firstChild);
+    }
+    
+    element.parentNode.replaceChild(newSpan, element);
   });
 }
 
 function manipParseAndReplace(span) {
   // Replace placeholders [map=filename.are] with buttons that open a map,
   // or with an empty string, if area is not found in the areas.json.
-  var html = span
-    .html()
+  let html = span.innerHTML
     .replace(/\[map=([-0-9a-z_]{1,15})\.are\]/g, function (match, p1) {
       if (areas.indexOf(p1) === -1) return '';
       return (
@@ -149,157 +163,174 @@ function manipParseAndReplace(span) {
     }
   );
 
-  span.html(html);
+  span.innerHTML = html;
 
   // Replace "<hc>command</hc>" tags surrounding commands to send as is.
-  span.find('hc').each(function () {
-    var cmd = $(this).contents();
-
-    $(this).replaceWith(function () {
-      var action = cmd.text();
-      var result = $('<span/>')
-        .addClass('manip-cmd')
-        .attr('data-action', action)
-        .attr('data-echo', action)
-        .append(cmd);
-      return result;
-    });
+  const hcElements = span.querySelectorAll('hc');
+  hcElements.forEach(function (element) {
+    const cmd = element.textContent;
+    const newSpan = document.createElement('span');
+    newSpan.className = 'manip-cmd';
+    newSpan.setAttribute('data-action', cmd);
+    newSpan.setAttribute('data-echo', cmd);
+    
+    // Move all child nodes from the old element to the new span
+    while (element.firstChild) {
+      newSpan.appendChild(element.firstChild);
+    }
+    
+    element.parentNode.replaceChild(newSpan, element);
   });
 
   // Replace "<hl>hyper link</hl>" tags surrounding hyper links.
   // Basic sanitization of the links.
-  span.find('hl').each(function () {
-    var content = $(this).contents();
-    var href = content.text();
+  const hlElements = span.querySelectorAll('hl');
+  hlElements.forEach(function (element) {
+    const href = element.textContent;
     if (!href.startsWith('http')) return;
 
-    $(this).replaceWith(function () {
-      var result = $('<a target=_blank />')
-        .addClass('manip-link')
-        .attr('href', href)
-        .append(content);
-      return result;
-    });
+    const newAnchor = document.createElement('a');
+    newAnchor.target = '_blank';
+    newAnchor.className = 'manip-link';
+    newAnchor.href = href;
+    
+    // Move all child nodes from the old element to the new anchor
+    while (element.firstChild) {
+      newAnchor.appendChild(element.firstChild);
+    }
+    
+    element.parentNode.replaceChild(newAnchor, element);
   });
 
   // Replace "<hh>article name</hh>" or "<hh id='333'>" tags surrounding help articles.
-  span.find('hh').each(function () {
-    var article = $(this).contents().text();
-    var id = $(this).attr('id') || article;
+  const hhElements = span.querySelectorAll('hh');
+  hhElements.forEach(function (element) {
+    const article = element.textContent;
+    const id = element.getAttribute('id') || article;
 
     // Split the string into <initial spaces><label ending with non-space><ending spaces>
-    var matches = article.match(/^( *)([\0-\uFFFF]*[^ ])( *)$/m);
+    const matches = article.match(/^( *)([\0-\uFFFF]*[^ ])( *)$/m);
     if (!matches || matches.length < 4) {
       // Do nothing for invalid help links.
       return;
     }
 
-    var spaceBegin = matches[1].length;
-    var spaceEnd = matches[3].length;
-    var label = matches[2];
+    const spaceBegin = matches[1].length;
+    const spaceEnd = matches[3].length;
+    const label = matches[2];
 
-    $(this).replaceWith(function () {
-      // Recreate initial and ending spaces as nbsp, so that the underlining link only surrounds the label.
-      var result =
-        '&nbsp;'.repeat(spaceBegin) +
-        $('<span/>')
-          .addClass('manip-cmd')
-          .addClass('manip-link')
-          .attr('data-action', 'help ' + id)
-          .attr('data-echo', 'справка ' + id)
-          .append(label)
-          .get(0).outerHTML +
-        '&nbsp;'.repeat(spaceEnd);
-      return result;
-    });
+    // Recreate initial and ending spaces as nbsp, so that the underlining link only surrounds the label.
+    const result =
+      '&nbsp;'.repeat(spaceBegin) +
+      '<span class="manip-cmd manip-link" data-action="help ' +
+      id +
+      '" data-echo="справка ' +
+      id +
+      '">' +
+      label +
+      '</span>' +
+      '&nbsp;'.repeat(spaceEnd);
+
+    element.outerHTML = result;
   });
 
   // Replace "<hg>skill group</hg>" tags surrounding group names.
-  span.find('hg').each(function () {
-    var article = $(this).contents();
-
-    $(this).replaceWith(function () {
-      var result = $('<span/>')
-        .addClass('manip-cmd')
-        .attr('data-action', 'glist ' + article.text())
-        .attr('data-echo', 'группаумен ' + article.text())
-        .append(article);
-      return result;
-    });
+  const hgElements = span.querySelectorAll('hg');
+  hgElements.forEach(function (element) {
+    const article = element.textContent;
+    const newSpan = document.createElement('span');
+    newSpan.className = 'manip-cmd';
+    newSpan.setAttribute('data-action', 'glist ' + article);
+    newSpan.setAttribute('data-echo', 'группаумен ' + article);
+    
+    // Move all child nodes from the old element to the new span
+    while (element.firstChild) {
+      newSpan.appendChild(element.firstChild);
+    }
+    
+    element.parentNode.replaceChild(newSpan, element);
   });
 
   // Replace "<hs>speedwalk</hs>" tags with 'run speedwalk' command.
-  span.find('hs').each(function () {
-    var article = $(this).contents();
-
-    $(this).replaceWith(function () {
-      var result = $('<span/>')
-        .addClass('manip-cmd')
-        .addClass('manip-speedwalk')
-        .attr('data-action', 'run ' + article.text())
-        .attr('data-echo', 'бежать ' + article.text())
-        .append(article);
-      return result;
-    });
+  const hsElements = span.querySelectorAll('hs');
+  hsElements.forEach(function (element) {
+    const article = element.textContent;
+    const newSpan = document.createElement('span');
+    newSpan.className = 'manip-cmd manip-speedwalk';
+    newSpan.setAttribute('data-action', 'run ' + article);
+    newSpan.setAttribute('data-echo', 'бежать ' + article);
+    
+    // Move all child nodes from the old element to the new span
+    while (element.firstChild) {
+      newSpan.appendChild(element.firstChild);
+    }
+    
+    element.parentNode.replaceChild(newSpan, element);
   });
 
   // Replace item manipulation "<m i='234234' c='take $,put $ 12348'/>" tags surrounding every item.
-  span.find('m').each(function () {
+  const mElements = span.querySelectorAll('m');
+  mElements.forEach(function (element) {
     // Populate menu node for each item based on the 'c' and 'l' attributes containing command lists.
     // Mark menu nodes so that they can be removed and not mess up the triggers.
-    var id = $(this).attr('i');
-    var menu = $('<span class="dropdown-menu no-triggers" />');
+    const id = element.getAttribute('i');
+    const menu = document.createElement('span');
+    menu.className = 'dropdown-menu no-triggers';
 
     function addToMenu(cmd) {
       if (cmd.trim().length === 0) return;
-      var action = cmd.replace(/\$/, id);
+      const action = cmd.replace(/\$/, id);
       // Menu entry visible to the user will only contain a meaningful word, without IDs or $ placeholders.
-      var label = cmd.replace(/( *\$ *| *[0-9]{5,}|\.'.*')/g, '');
-      menu.append(
-        $('<a/>')
-          .addClass('dropdown-item')
-          .addClass('manip-item')
-          .attr('data-action', action)
-          .attr('href', '#')
-          .append(label)
-      );
+      const label = cmd.replace(/( *\$ *| *[0-9]{5,}|\.'.*')/g, '');
+      
+      const menuItem = document.createElement('a');
+      menuItem.className = 'dropdown-item manip-item';
+      menuItem.href = '#';
+      menuItem.setAttribute('data-action', action);
+      menuItem.textContent = label;
+      
+      menu.appendChild(menuItem);
     }
 
     // Main commands above the divider.
-    if (this.hasAttribute('c'))
-      $(this)
-        .attr('c')
+    if (element.hasAttribute('c')) {
+      element.getAttribute('c')
         .split(',')
-        .map(function (cmd) {
+        .forEach(function (cmd) {
           addToMenu(cmd);
-          return cmd;
         });
+    }
 
     // Commands only available in this room, below the divider.
-    if (this.hasAttribute('l')) {
-      var divider = $('<div/>').addClass('dropdown-divider');
-      menu.append(divider);
-      $(this)
-        .attr('l')
+    if (element.hasAttribute('l')) {
+      const divider = document.createElement('div');
+      divider.className = 'dropdown-divider';
+      menu.appendChild(divider);
+      
+      element.getAttribute('l')
         .split(',')
-        .map(function (cmd) {
+        .forEach(function (cmd) {
           addToMenu(cmd);
-          return cmd;
         });
     }
 
     // Create drop-down toggle from item description text.
-    var toggle = $(
-      '<span class="dropdown-toggle" data-toggle="dropdown"/>'
-    ).append($(this).contents());
+    const toggle = document.createElement('span');
+    toggle.className = 'dropdown-toggle';
+    toggle.setAttribute('data-toggle', 'dropdown');
+    
+    // Move all child nodes from the old element to the toggle
+    while (element.firstChild) {
+      toggle.appendChild(element.firstChild);
+    }
 
     // Replace '<m>' pseudo-tag with Popper dropdown markup.
-    $(this).replaceWith(function () {
-      var result = $('<span class="dropdown-norelative"/>')
-        .append(toggle)
-        .append(menu);
-      return result;
-    });
+    const result = document.createElement('span');
+    result.className = 'dropdown-norelative';
+    result.appendChild(toggle);
+    result.appendChild(menu);
+
+    element.parentNode.replaceChild(result, element);
   });
 }
 

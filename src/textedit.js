@@ -1,4 +1,3 @@
-import $ from 'jquery';
 import loader from '@monaco-editor/loader';
 import 'devbridge-autocomplete';
 import { rpccmd } from './websock';
@@ -40,30 +39,36 @@ function getResponsiveEditorParams() {
 }
 
 function initHelpIds() {
-  const heditLookup = $('#textedit-modal input');
+  const heditLookup = document.querySelector('#textedit-modal input');
 
-  $.get(
-    'hedit.json',
-    function (data) {
-      const topics = $.map(data, item => ({
+  fetch('hedit.json')
+    .then(response => response.json())
+    .then(function (data) {
+      const topics = data.map(item => ({
         value: `${item.id}: ${item.kw.toLowerCase()}`,
         data: item.id,
       }));
 
-      heditLookup.autocomplete({
-        lookup: topics,
-        lookupLimit: 20,
-        autoSelectFirst: true,
-        showNoSuggestionNotice: true,
-        noSuggestionNotice: 'Справка не найдена',
-        onSelect: () => $('#textedit-modal .editor').focus(),
-      });
-    },
-    'json'
-  ).fail(() => {
-    console.log('Cannot retrieve help ids.');
-    $('#textedit-modal input').hide();
-  });
+      // Note: This requires devbridge-autocomplete to work with vanilla JS
+      // or we need to find an alternative autocomplete library
+      if (heditLookup && window.jQuery) {
+        window.jQuery(heditLookup).autocomplete({
+          lookup: topics,
+          lookupLimit: 20,
+          autoSelectFirst: true,
+          showNoSuggestionNotice: true,
+          noSuggestionNotice: 'Справка не найдена',
+          onSelect: () => document.querySelector('#textedit-modal .editor').focus(),
+        });
+      }
+    })
+    .catch(() => {
+      console.log('Cannot retrieve help ids.');
+      const input = document.querySelector('#textedit-modal input');
+      if (input) {
+        input.style.display = 'none';
+      }
+    });
 }
 
 function initVoiceRecognition(monaco) {
@@ -82,9 +87,9 @@ function initVoiceRecognition(monaco) {
   });
 }
 
-$(document).ready(() => {
+document.addEventListener('DOMContentLoaded', () => {
   loader.init().then(monaco => {
-    const editorElement = $('#textedit-modal .editor')[0];
+    const editorElement = document.querySelector('#textedit-modal .editor');
     const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
 
     monacoEditor = monaco.editor.create(editorElement, {
@@ -115,9 +120,12 @@ $(document).ready(() => {
     initVoiceRecognition(monacoEditor);
 
     // 🔄 Перезапуск речи при смене языка
-    document.querySelector('#voice-lang').addEventListener('change', () => {
-      initVoiceRecognition(monacoEditor);
-    });
+    const voiceLang = document.querySelector('#voice-lang');
+    if (voiceLang) {
+      voiceLang.addEventListener('change', () => {
+        initVoiceRecognition(monacoEditor);
+      });
+    }
 
     monacoEditor.onDidChangeModelContent(() => {
       const model = monacoEditor.getModel();
@@ -135,31 +143,65 @@ $(document).ready(() => {
       }
     });
 
-    $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
-      monacoEditor.setValue(text || '');
-      $('#textedit-modal').modal('show');
+    const rpcEvents = document.getElementById('rpc-events');
+    if (rpcEvents) {
+      rpcEvents.addEventListener('rpc-editor_open', (e) => {
+        const text = e.detail[0];
+        const arg = e.detail[1];
+        
+        monacoEditor.setValue(text || '');
+        const modal = document.getElementById('textedit-modal');
+        if (modal) {
+          // For Bootstrap 4 modal
+          if (window.bootstrap && window.bootstrap.Modal) {
+            const bootstrapModal = new window.bootstrap.Modal(modal);
+            bootstrapModal.show();
+          } else {
+            modal.style.display = 'block';
+            modal.classList.add('show');
+          }
+        }
 
-      if (arg === 'help') {
-        $('#textedit-modal input').show();
-        initHelpIds();
-      } else {
-        $('#textedit-modal input').hide();
-      }
+        const input = document.querySelector('#textedit-modal input');
+        if (arg === 'help') {
+          if (input) input.style.display = 'block';
+          initHelpIds();
+        } else {
+          if (input) input.style.display = 'none';
+        }
 
-      $('#textedit-modal .save-button')
-        .off()
-        .click(e => {
-          e.preventDefault();
-          const val = monacoEditor.getValue();
-          rpccmd('editor_save', val);
-        });
+        const saveButton = document.querySelector('#textedit-modal .save-button');
+        const cancelButton = document.querySelector('#textedit-modal .cancel-button');
 
-      $('#textedit-modal .cancel-button')
-        .off()
-        .click(e => {
-          e.preventDefault();
-          $('#textedit-modal').modal('hide');
-        });
-    });
+        if (saveButton) {
+          // Remove existing listeners
+          const newSaveButton = saveButton.cloneNode(true);
+          saveButton.parentNode.replaceChild(newSaveButton, saveButton);
+          
+          newSaveButton.addEventListener('click', e => {
+            e.preventDefault();
+            const val = monacoEditor.getValue();
+            rpccmd('editor_save', val);
+          });
+        }
+
+        if (cancelButton) {
+          // Remove existing listeners
+          const newCancelButton = cancelButton.cloneNode(true);
+          cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
+          
+          newCancelButton.addEventListener('click', e => {
+            e.preventDefault();
+            if (window.bootstrap && window.bootstrap.Modal) {
+              const bootstrapModal = window.bootstrap.Modal.getInstance(modal);
+              if (bootstrapModal) bootstrapModal.hide();
+            } else {
+              modal.style.display = 'none';
+              modal.classList.remove('show');
+            }
+          });
+        }
+      });
+    }
   });
 });

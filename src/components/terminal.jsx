@@ -172,7 +172,7 @@ const $ = (selector) => {
       return createJQueryLikeObject(el);
     },
     length: el ? 1 : 0,
-    get: (index) => el
+    get: (index) => index === 0 ? el : null
   });
   
   return createJQueryLikeObject(element);

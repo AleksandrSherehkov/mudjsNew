@@ -1,4 +1,4 @@
-import { onDocumentReady, on, trigger, off } from './utils/domUtils.js';
+import { onDocumentReady, on, trigger, off, $ } from './utils/domUtils.js';
 import loader from '@monaco-editor/loader';
 import { send } from './websock.js';
 import notify from './notify.js';
@@ -12,7 +12,7 @@ let keydown = function () {};
 const applySettings = s => {
   const settings = `return function(params) {
     'use strict';
-    let { keydown, notify, send, echo, mudprompt } = params;
+    let { keydown, notify, send, echo, mudprompt, $ } = params;
     (function() { ${s} })();
     return { keydown };
   }`;
@@ -23,6 +23,7 @@ const applySettings = s => {
     send,
     echo,
     mudprompt: window.mudprompt,
+    $,
   });
 
   keydown = exports.keydown;

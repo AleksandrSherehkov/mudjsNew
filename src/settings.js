@@ -1,7 +1,79 @@
 import loader from '@monaco-editor/loader';
 import { send } from './websock.js';
 import notify from './notify.js';
-import $ from 'jquery';
+
+// Lightweight jQuery-like wrapper for backward compatibility with user settings
+const $ = (selector) => {
+  if (typeof selector === 'string') {
+    const elements = document.querySelectorAll(selector);
+    return {
+      length: elements.length,
+      [Symbol.iterator]: function* () {
+        for (let element of elements) {
+          yield element;
+        }
+      },
+      each: function(callback) {
+        elements.forEach((element, index) => callback.call(element, index, element));
+        return this;
+      },
+      on: function(event, handler) {
+        elements.forEach(element => element.addEventListener(event, handler));
+        return this;
+      },
+      off: function(event, handler) {
+        elements.forEach(element => element.removeEventListener(event, handler));
+        return this;
+      },
+      find: function(childSelector) {
+        const found = [];
+        elements.forEach(element => {
+          found.push(...element.querySelectorAll(childSelector));
+        });
+        return $(found);
+      },
+      get: function(index) {
+        return elements[index];
+      }
+    };
+  } else if (selector && selector.nodeType) {
+    // If it's already a DOM element, wrap it
+    return $([selector]);
+  } else if (Array.isArray(selector)) {
+    // If it's an array of elements
+    return {
+      length: selector.length,
+      [Symbol.iterator]: function* () {
+        for (let element of selector) {
+          yield element;
+        }
+      },
+      each: function(callback) {
+        selector.forEach((element, index) => callback.call(element, index, element));
+        return this;
+      },
+      on: function(event, handler) {
+        selector.forEach(element => element.addEventListener(event, handler));
+        return this;
+      },
+      off: function(event, handler) {
+        selector.forEach(element => element.removeEventListener(event, handler));
+        return this;
+      },
+      find: function(childSelector) {
+        const found = [];
+        selector.forEach(element => {
+          found.push(...element.querySelectorAll(childSelector));
+        });
+        return $(found);
+      },
+      get: function(index) {
+        return selector[index];
+      }
+    };
+  }
+  return { length: 0 };
+};
 
 const echo = txt => {
   const terminal = document.querySelector('.terminal');
@@ -103,9 +175,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const trigger = document.querySelector('.trigger');
             if (trigger) {
-              // Remove namespace event listeners (native equivalent of jQuery's .off('input.myNamespace text.myNamespace'))
-              trigger.removeEventListener('input', null);
-              trigger.removeEventListener('text', null);
+              // Clone and replace the trigger element to remove all event listeners
+              // This is the native equivalent of jQuery's .off() without specific handlers
+              const newTrigger = trigger.cloneNode(true);
+              trigger.parentNode.replaceChild(newTrigger, trigger);
             }
             
             const val = editor.getValue();

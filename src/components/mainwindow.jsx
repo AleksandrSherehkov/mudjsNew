@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import { useTheme } from '@mui/material/styles';
 import CmdInput from './cmdinput';
 import Terminal from './terminal';
+import ErrorBoundary from './ErrorBoundary';
 
 import { send } from '../websock';
 
@@ -201,11 +202,13 @@ export default function MainWindow() {
           unread={unread}
           onScrollToBottom={() => terminal.current.scrollToBottom()}
         />
-        <Terminal
-          ref={terminal}
-          resetUnread={() => setUnread(0)}
-          bumpUnread={() => setUnread(unread + 1)}
-        />
+        <ErrorBoundary>
+          <Terminal
+            ref={terminal}
+            resetUnread={() => setUnread(0)}
+            bumpUnread={() => setUnread(unread + 1)}
+          />
+        </ErrorBoundary>
       </Box>
       <CmdInput />
     </Box>

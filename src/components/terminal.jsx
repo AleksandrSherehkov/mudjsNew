@@ -10,86 +10,172 @@ const $ = (selector) => {
     return null;
   }
   
+  let element = null;
+  
   if (typeof selector === 'string') {
-    const element = document.querySelector(selector);
-    if (!element) return { 
-      find: () => ({ each: () => {}, length: 0 }),
-      on: () => {},
-      trigger: () => {},
-      html: () => '',
-      text: () => '',
-      clone: () => ({ find: () => ({ remove: () => {} }), text: () => '' }),
-      attr: () => '',
-      appendTo: () => {},
-      append: () => '',
-      remove: () => {},
-      length: 0
-    };
-    
-    return {
-      find: (sel) => {
-        const elements = Array.from(element.querySelectorAll(sel));
-        return {
-          each: (callback) => elements.forEach((el, i) => callback.call(el, i)),
-          length: elements.length
-        };
-      },
-      on: (event, handler) => {
-        element.addEventListener(event, (e) => {
+    // Check if this is element creation (starts with '<' and ends with '>')
+    if (selector.startsWith('<') && selector.endsWith('>')) {
+      // Extract tag name from the selector like '<div>' or '<span/>'
+      const tagMatch = selector.match(/<(\w+).*?>/);
+      if (tagMatch) {
+        element = document.createElement(tagMatch[1]);
+      }
+    } else {
+      // Regular selector
+      element = document.querySelector(selector);
+    }
+  } else if (selector && selector.nodeType) {
+    // Direct DOM element
+    element = selector;
+  }
+  
+  // Return a null-safe jQuery-like object
+  const createJQueryLikeObject = (el) => ({
+    find: (sel) => {
+      if (!el) return createJQueryLikeObject(null);
+      const elements = Array.from(el.querySelectorAll(sel));
+      return {
+        each: (callback) => elements.forEach((element, i) => callback.call(element, i)),
+        length: elements.length,
+        last: () => {
+          const lastEl = elements[elements.length - 1];
+          return lastEl ? createJQueryLikeObject(lastEl) : createJQueryLikeObject(null);
+        },
+        first: () => {
+          const firstEl = elements[0];
+          return firstEl ? createJQueryLikeObject(firstEl) : createJQueryLikeObject(null);
+        },
+        get: (index) => elements[index] || null
+      };
+    },
+    on: (event, handler) => {
+      if (el) {
+        el.addEventListener(event, (e) => {
           // Convert to jQuery-like event format
           handler(e, e.detail ? e.detail[0] : undefined);
         });
-      },
-      trigger: (event, data) => {
+      }
+    },
+    off: (event, handler) => {
+      if (el) {
+        if (handler) {
+          el.removeEventListener(event, handler);
+        } else {
+          // For all events, we can't easily remove all listeners without tracking them
+          // For now, just do nothing for the no-handler case
+        }
+      }
+    },
+    trigger: (event, data) => {
+      if (el) {
         const customEvent = new CustomEvent(event, { detail: data, bubbles: true });
-        element.dispatchEvent(customEvent);
-      },
-      html: (content) => {
-        if (content === undefined) return element.innerHTML;
-        element.innerHTML = content;
-        return this;
-      },
-      text: () => element.textContent,
-      clone: () => {
-        const cloned = element.cloneNode(true);
-        return {
-          find: (sel) => ({
-            remove: () => {
-              const found = cloned.querySelectorAll(sel);
-              found.forEach(el => el.remove());
-            }
-          }),
-          text: () => cloned.textContent
-        };
-      },
-      attr: (name, value) => {
-        if (value === undefined) return element.getAttribute(name);
-        element.setAttribute(name, value);
-        return this;
-      },
-      appendTo: (target) => {
-        if (typeof target === 'string') {
-          const targetEl = document.querySelector(target);
-          if (targetEl) targetEl.appendChild(element);
-        } else if (target && target.appendChild) {
-          target.appendChild(element);
+        el.dispatchEvent(customEvent);
+      }
+    },
+    html: (content) => {
+      if (!el) return '';
+      if (content === undefined) return el.innerHTML;
+      el.innerHTML = content;
+      return createJQueryLikeObject(el);
+    },
+    text: () => el ? el.textContent : '',
+    clone: () => {
+      if (!el) return createJQueryLikeObject(null);
+      const cloned = el.cloneNode(true);
+      return {
+        find: (sel) => ({
+          remove: () => {
+            const found = cloned.querySelectorAll(sel);
+            found.forEach(element => element.remove());
+          }
+        }),
+        text: () => cloned.textContent
+      };
+    },
+    attr: (name, value) => {
+      if (!el) return '';
+      if (value === undefined) return el.getAttribute(name);
+      el.setAttribute(name, value);
+      return createJQueryLikeObject(el);
+    },
+    appendTo: (target) => {
+      if (!el) return;
+      if (typeof target === 'string') {
+        const targetEl = document.querySelector(target);
+        if (targetEl) targetEl.appendChild(el);
+      } else if (target && target.appendChild) {
+        target.appendChild(el);
+      }
+    },
+    append: (content) => {
+      if (!el) return createJQueryLikeObject(el);
+      if (typeof content === 'string') {
+        el.insertAdjacentHTML('beforeend', content);
+      } else if (content && content.nodeType) {
+        el.appendChild(content);
+      }
+      return createJQueryLikeObject(el);
+    },
+    prepend: (content) => {
+      if (!el) return createJQueryLikeObject(el);
+      if (typeof content === 'string') {
+        el.insertAdjacentHTML('afterbegin', content);
+      } else if (content && content.nodeType) {
+        el.insertBefore(content, el.firstChild);
+      }
+      return createJQueryLikeObject(el);
+    },
+    remove: () => el && el.remove(),
+    empty: () => {
+      if (el) el.innerHTML = '';
+      return createJQueryLikeObject(el);
+    },
+    children: (selector) => {
+      if (!el) return createJQueryLikeObject(null);
+      const children = selector 
+        ? Array.from(el.children).filter(child => child.matches(selector))
+        : Array.from(el.children);
+      
+      return {
+        length: children.length,
+        last: () => {
+          const lastChild = children[children.length - 1];
+          return lastChild ? createJQueryLikeObject(lastChild) : createJQueryLikeObject(null);
+        },
+        first: () => {
+          const firstChild = children[0];
+          return firstChild ? createJQueryLikeObject(firstChild) : createJQueryLikeObject(null);
+        },
+        remove: () => {
+          children.forEach(child => child.remove());
         }
-      },
-      append: (content) => {
-        if (typeof content === 'string') {
-          element.insertAdjacentHTML('beforeend', content);
-        } else if (content && content.nodeType) {
-          element.appendChild(content);
-        }
-        return this;
-      },
-      remove: () => element.remove(),
-      length: 1,
-      get: (index) => element
-    };
-  }
+      };
+    },
+    offset: () => {
+      if (!el) return { top: 0, left: 0 };
+      const rect = el.getBoundingClientRect();
+      return {
+        top: rect.top + window.scrollY,
+        left: rect.left + window.scrollX
+      };
+    },
+    height: () => el ? el.offsetHeight : 0,
+    outerHeight: () => {
+      if (!el) return 0;
+      const rect = el.getBoundingClientRect();
+      return rect.height;
+    },
+    scrollTop: (value) => {
+      if (!el) return 0;
+      if (value === undefined) return el.scrollTop;
+      el.scrollTop = value;
+      return createJQueryLikeObject(el);
+    },
+    length: el ? 1 : 0,
+    get: (index) => index === 0 ? el : null
+  });
   
-  return {};
+  return createJQueryLikeObject(element);
 };
 
 import React from 'react';
@@ -137,20 +223,35 @@ const loadChunks = (startId, direction, maxlen) => {
 };
 
 function terminalInit(wrap) {
-  const terminal = find(wrap, '.terminal')[0];
+  if (!wrap || typeof wrap.on !== 'function') {
+    console.error('Invalid wrap object passed to terminalInit:', wrap);
+    return;
+  }
+  const terminalFound = wrap.find('.terminal');
+  if (!terminalFound || terminalFound.length === 0) {
+    console.error('Terminal element not found');
+    return;
+  }
+  
+  // Create a jQuery-like wrapper for the first terminal element found
+  const terminalEl = $(terminalFound.get(0));
 
   const appendToTerminal = chunk => {
-    terminal.appendChild(chunk);
+    // Get the actual DOM element from the jQuery-like object
+    const terminalDom = terminalEl.get(0);
+    if (terminalDom) {
+      terminalDom.appendChild(chunk);
 
-    while (terminal.innerHTML.length > maxBytesOnScreen) {
-      const firstChild = terminal.firstElementChild;
-      if (firstChild) firstChild.remove();
+      while (terminalDom.innerHTML.length > maxBytesOnScreen) {
+        const firstChild = terminalDom.firstElementChild;
+        if (firstChild) firstChild.remove();
+      }
+
+      wrap.scrollTop(terminalDom.offsetHeight);
     }
-
-    wrap.scrollTop = terminal.offsetHeight;
   };
   const atBottom = () => {
-    const lastMessage = terminal.children().last();
+    const lastMessage = terminalEl.children().last();
     if (lastMessage.length === 0) return true;
 
     const lastMessageBottom =
@@ -166,7 +267,7 @@ function terminalInit(wrap) {
     scrolling = true;
 
     return loadChunks(startId, true, len).then(chunks =>
-      chunks.forEach(chunk => terminal.prepend(chunk))
+      chunks.forEach(chunk => terminalEl.prepend(chunk))
     );
   };
 
@@ -174,34 +275,34 @@ function terminalInit(wrap) {
     scrolling = true;
 
     return loadChunks(startId, false, len).then(chunks =>
-      chunks.forEach(chunk => terminal.append(chunk))
+      chunks.forEach(chunk => terminalEl.append(chunk))
     );
   };
 
   const scrollToBottom = () => {
     wrap.scrollTop(0);
-    terminal.empty();
+    terminalEl.empty();
 
     return loadTop(null, maxBytesOnScreen).then(() => {
-      wrap.scrollTop(terminal.height());
+      wrap.scrollTop(terminalEl.height());
       scrolling = false;
     }); // scroll to the bottom
   };
 
   wrap.on('scroll-to-bottom', () => scrollToBottom());
 
-  terminal.on('output', function (e, txt) {
+  terminalEl.on('output', function (e, txt) {
     const span = $('<span/>');
     span.html(ansi2html(txt));
 
     manip.colorParseAndReplace(span);
     manip.manipParseAndReplace(span);
 
-    terminal.trigger('output-html', [span.html()]);
+    terminalEl.trigger('output-html', [span.html()]);
   });
 
   // this may not be called from outside of terminal logic.
-  terminal.on('output-html', function (e, html) {
+  terminalEl.on('output-html', function (e, html) {
     historyDb
       .then(db => db.append(html))
       .then(id => {
@@ -244,7 +345,7 @@ function terminalInit(wrap) {
 
     // Load top chunks while scrolling up.
     if (wrap.scrollTop() < scrollThreshold) {
-      let $fst = terminal.find('div[data-chunk-id]:first-child');
+      let $fst = terminalEl.find('div[data-chunk-id]:first-child');
 
       // terminal is empty, can't scroll
       if ($fst.length === 0) return;
@@ -258,8 +359,8 @@ function terminalInit(wrap) {
       }
 
       loadTop(fstId, bytesToLoad).then(() => {
-        while (terminal.html().length > maxBytesOnScreen)
-          terminal.children(':last').remove();
+        while (terminalEl.html().length > maxBytesOnScreen)
+          terminalEl.children(':last').remove();
 
         wrap.scrollTop(wrap.scrollTop() + $fst.offset().top - off);
         scrolling = false;
@@ -271,9 +372,9 @@ function terminalInit(wrap) {
     // Load bottom chunks while scrolling down.
     if (
       wrap.scrollTop() >
-      terminal.height() - wrap.height() - scrollThreshold
+      terminalEl.height() - wrap.height() - scrollThreshold
     ) {
-      let $lst = terminal.find('div[data-chunk-id]:last-child');
+      let $lst = terminalEl.find('div[data-chunk-id]:last-child');
 
       // terminal is empty, can't scroll
       if ($lst.length === 0) return;
@@ -293,8 +394,8 @@ function terminalInit(wrap) {
       }
 
       loadBottom(lstId, bytesToLoad).then(() => {
-        while (terminal.html().length > maxBytesOnScreen)
-          terminal.children(':first').remove();
+        while (terminalEl.html().length > maxBytesOnScreen)
+          terminalEl.children(':first').remove();
 
         wrap.scrollTop(wrap.scrollTop() + $lst.offset().top - off);
         scrolling = false;
@@ -305,7 +406,7 @@ function terminalInit(wrap) {
   });
 
   scrollToBottom().then(() => {
-    const echo = html => terminal.trigger('output-html', [html]);
+    const echo = html => terminalEl.trigger('output-html', [html]);
 
     echo('<hr>');
     echo(
@@ -318,26 +419,34 @@ function terminalInit(wrap) {
 
   return () => {
     wrap.off();
-    terminal.off();
+    terminalEl.off();
   };
 }
 
 const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
   const wrap = useRef();
 
-  useEffect(() => terminalInit($(wrap.current)), [wrap]);
+  useEffect(() => {
+    if (wrap.current) {
+      terminalInit($(wrap.current));
+    }
+  }, []);
 
   useEffect(() => {
-    let cur = $(wrap.current);
-    cur.on('bump-unread', bumpUnread);
-    return () => cur.off('bump-unread', bumpUnread);
-  }, [wrap, bumpUnread]);
+    if (wrap.current) {
+      let cur = $(wrap.current);
+      cur.on('bump-unread', bumpUnread);
+      return () => cur.off('bump-unread', bumpUnread);
+    }
+  }, [bumpUnread]);
 
   useEffect(() => {
-    let cur = $(wrap.current);
-    cur.on('reset-unread', resetUnread);
-    return () => cur.off('reset-unread', resetUnread);
-  }, [wrap, resetUnread]);
+    if (wrap.current) {
+      let cur = $(wrap.current);
+      cur.on('reset-unread', resetUnread);
+      return () => cur.off('reset-unread', resetUnread);
+    }
+  }, [resetUnread]);
 
   useEffect(() => {
     const enableAutoScroll = () => {
@@ -360,9 +469,13 @@ const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
   useImperativeHandle(
     ref,
     () => ({
-      scrollToBottom: () => $(wrap.current).trigger('scroll-to-bottom', []),
+      scrollToBottom: () => {
+        if (wrap.current) {
+          $(wrap.current).trigger('scroll-to-bottom', []);
+        }
+      },
     }),
-    [wrap]
+    []
   );
 
   return (
@@ -375,5 +488,7 @@ const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
     </div>
   );
 });
+
+Terminal.displayName = 'Terminal';
 
 export default Terminal;

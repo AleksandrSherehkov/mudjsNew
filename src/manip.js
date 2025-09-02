@@ -1,4 +1,3 @@
-import $ from 'jquery';
 import areasJson from './data/areas.json';
 import { send, ws } from './websock.js';
 import { echo } from './input.js';
@@ -6,65 +5,78 @@ import { echo } from './input.js';
 // Create the list of all possible area file names (without ".are" bit).
 const areas = areasJson.map(a => a.file.replace('.are', ''));
 
-$(document).ready(function () {
+document.addEventListener('DOMContentLoaded', function () {
   // Control panel buttons.
-  $('body').on('click', '.btn-ctrl-panel', function (e) {
-    var cmd = $(e.currentTarget).attr('data-action');
-    var conf = $(e.currentTarget).attr('data-confirm');
+  document.body.addEventListener('click', function (e) {
+    const target = e.target.closest('.btn-ctrl-panel');
+    if (target) {
+      var cmd = target.getAttribute('data-action');
+      var conf = target.getAttribute('data-confirm');
 
-    if (
-      conf !== undefined &&
-      !window.confirm('Вы действительно хотите ' + conf + '?')
-    )
-      return;
+      if (
+        conf !== undefined &&
+        !window.confirm('Вы действительно хотите ' + conf + '?')
+      )
+        return;
 
-    echo(cmd);
-    send(cmd);
+      echo(cmd);
+      send(cmd);
+    }
   });
 
   // Send comman to the server when command hyper link is clicked
   // e. g. 'read sign' or 'walk trap'.
-  $('body').on('click', '.manip-cmd', function (e) {
-    var cmd = $(e.currentTarget);
-    echo(cmd.attr('data-echo'));
-    send(cmd.attr('data-action'));
+  document.body.addEventListener('click', function (e) {
+    const target = e.target.closest('.manip-cmd');
+    if (target) {
+      echo(target.getAttribute('data-echo'));
+      send(target.getAttribute('data-action'));
+    }
   });
 
   // Send command to the server when individual menu item is clicked.
-  $('body').on('click', '.manip-item', function (e) {
-    var cmd = $(e.currentTarget);
-    echo(cmd.attr('data-echo'));
-    send(cmd.attr('data-action'));
+  document.body.addEventListener('click', function (e) {
+    const target = e.target.closest('.manip-item');
+    if (target) {
+      echo(target.getAttribute('data-echo'));
+      send(target.getAttribute('data-action'));
+    }
   });
 
   // Underline current selection when dropdown is shown (Bootstrap 5 event).
-  $('body').on('show.bs.dropdown', '.dropdown', function (e) {
-    $(e.relatedTarget).css('text-decoration', 'underline');
+  document.body.addEventListener('show.bs.dropdown', function (e) {
+    if (e.relatedTarget) {
+      e.relatedTarget.style.textDecoration = 'underline';
+    }
   });
 
   // Remove underline when dropdown is hidden (Bootstrap 5 event).
-  $('body').on('hide.bs.dropdown', '.dropdown', function (e) {
-    $(e.relatedTarget).removeAttr('style');
+  document.body.addEventListener('hide.bs.dropdown', function (e) {
+    if (e.relatedTarget) {
+      e.relatedTarget.style.removeProperty('text-decoration');
+    }
   });
 });
 
 // Replace colour "<c c='fgbr'/>" tags coming from the server with spans.
 function colorParseAndReplace(span) {
-  span.find('c').each(function () {
-    var style = $(this).attr('c');
-    $(this).replaceWith(function () {
-      var result = $('<span/>').append($(this).contents());
-      result.addClass(style);
-      return result;
-    });
+  const cElements = span.querySelectorAll('c');
+  cElements.forEach(function (element) {
+    const style = element.getAttribute('c');
+    const newSpan = document.createElement('span');
+    newSpan.className = style;
+    // Move all child nodes from the old element to the new span
+    while (element.firstChild) {
+      newSpan.appendChild(element.firstChild);
+    }
+    element.parentNode.replaceChild(newSpan, element);
   });
 }
 
 function manipParseAndReplace(span) {
   // Replace placeholders [map=filename.are] with buttons that open a map,
   // or with an empty string, if area is not found in the areas.json.
-  var html = span
-    .html()
+  var html = span.innerHTML
     .replace(/\[map=([-0-9a-z_]{1,15})\.are\]/g, function (match, p1) {
       if (areas.indexOf(p1) === -1) return '';
       return (
@@ -149,37 +161,39 @@ function manipParseAndReplace(span) {
     }
   );
 
-  span.html(html);
+  span.innerHTML = html;
 
   // Replace "<hc>command</hc>" tags surrounding commands to send as is.
-  span.find('hc').each(function () {
-    var cmd = $(this).contents();
-
-    $(this).replaceWith(function () {
-      var action = cmd.text();
-      var result = $('<span/>')
-        .addClass('manip-cmd')
-        .attr('data-action', action)
-        .attr('data-echo', action)
-        .append(cmd);
-      return result;
-    });
+  const hcElements = span.querySelectorAll('hc');
+  hcElements.forEach(function (element) {
+    const action = element.textContent;
+    const newSpan = document.createElement('span');
+    newSpan.className = 'manip-cmd';
+    newSpan.setAttribute('data-action', action);
+    newSpan.setAttribute('data-echo', action);
+    // Move all child nodes from the old element to the new span
+    while (element.firstChild) {
+      newSpan.appendChild(element.firstChild);
+    }
+    element.parentNode.replaceChild(newSpan, element);
   });
 
   // Replace "<hl>hyper link</hl>" tags surrounding hyper links.
   // Basic sanitization of the links.
-  span.find('hl').each(function () {
-    var content = $(this).contents();
-    var href = content.text();
+  const hlElements = span.querySelectorAll('hl');
+  hlElements.forEach(function (element) {
+    const href = element.textContent;
     if (!href.startsWith('http')) return;
 
-    $(this).replaceWith(function () {
-      var result = $('<a target=_blank />')
-        .addClass('manip-link')
-        .attr('href', href)
-        .append(content);
-      return result;
-    });
+    const newLink = document.createElement('a');
+    newLink.className = 'manip-link';
+    newLink.setAttribute('href', href);
+    newLink.setAttribute('target', '_blank');
+    // Move all child nodes from the old element to the new link
+    while (element.firstChild) {
+      newLink.appendChild(element.firstChild);
+    }
+    element.parentNode.replaceChild(newLink, element);
   });
 
   // Replace "<hh>article name</hh>" or "<hh id='333'>" tags surrounding help articles.

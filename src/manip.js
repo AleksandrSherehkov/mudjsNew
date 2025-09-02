@@ -37,12 +37,12 @@ $(document).ready(function () {
     send(cmd.attr('data-action'));
   });
 
-  // Underline current selection when dropdown is shown.
+  // Underline current selection when dropdown is shown (Bootstrap 5 event).
   $('body').on('show.bs.dropdown', '.dropdown', function (e) {
     $(e.relatedTarget).css('text-decoration', 'underline');
   });
 
-  // Remove underline when dropdown is hidden.
+  // Remove underline when dropdown is hidden (Bootstrap 5 event).
   $('body').on('hide.bs.dropdown', '.dropdown', function (e) {
     $(e.relatedTarget).removeAttr('style');
   });
@@ -290,7 +290,7 @@ function manipParseAndReplace(span) {
 
     // Create drop-down toggle from item description text.
     var toggle = $(
-      '<span class="dropdown-toggle" data-toggle="dropdown"/>'
+      '<span class="dropdown-toggle" data-bs-toggle="dropdown"/>'
     ).append($(this).contents());
 
     // Replace '<m>' pseudo-tag with Popper dropdown markup.
@@ -298,6 +298,17 @@ function manipParseAndReplace(span) {
       var result = $('<span class="dropdown-norelative"/>')
         .append(toggle)
         .append(menu);
+      
+      // Initialize Bootstrap 5 dropdown programmatically
+      setTimeout(() => {
+        if (window.bootstrap && window.bootstrap.Dropdown) {
+          const dropdownToggleEl = result.find('.dropdown-toggle')[0];
+          if (dropdownToggleEl) {
+            new window.bootstrap.Dropdown(dropdownToggleEl);
+          }
+        }
+      }, 0);
+      
       return result;
     });
   });

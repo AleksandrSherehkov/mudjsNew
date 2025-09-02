@@ -1,5 +1,7 @@
 import $ from 'jquery';
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'; // Bootstrap 5 JS
+import * as bootstrap from 'bootstrap';
+// Expose Bootstrap to global scope for use in other modules
+window.bootstrap = bootstrap;
 import PropertiesStorage from './properties';
 import { connect } from './websock';
 import lastLocation from './location';

@@ -4,7 +4,11 @@ import 'devbridge-autocomplete';
 $(document).ready(function () {
   // Обработка клика по элементам с data-hint
   $('body').on('click', '[data-hint]', function (e) {
-    $('#' + $(this).data('hint')).modal('toggle');
+    const modalElement = document.getElementById($(this).data('hint'));
+    if (modalElement && window.bootstrap && window.bootstrap.Modal) {
+      const modal = new window.bootstrap.Modal(modalElement);
+      modal.toggle();
+    }
     e.stopPropagation();
     e.preventDefault();
   });

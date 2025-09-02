@@ -1,4 +1,4 @@
-import { onDocumentReady, onDelegate, on, val, trigger, addClass, removeClass, append } from './utils/domUtils.js';
+import $ from 'jquery';
 import loader from '@monaco-editor/loader';
 import { rpccmd } from './websock.js';
 
@@ -24,7 +24,7 @@ let monacoEditor;
 let openFiles = {}; // { filename: { value: 'code', saved: true } }
 let currentFile = null;
 
-onDocumentReady(function () {
+$(document).ready(function () {
   loader.init().then(monaco => {
     // 🧠 Регистрация языка "fenia"
     monaco.languages.register({ id: 'fenia' });
@@ -117,7 +117,7 @@ onDocumentReady(function () {
     });
 
     // 👇 Установка редактора с языком "fenia"
-    const editorElement = document.querySelector('#cs-modal .editor');
+    const editorElement = $('#cs-modal .editor')[0];
     monacoEditor = monaco.editor.create(editorElement, {
       value: '',
       language: 'fenia',
@@ -142,15 +142,15 @@ onDocumentReady(function () {
       }
     });
 
-    onDelegate('#editor-tabs', 'click', '.nav-link', function (e) {
+    $('#editor-tabs').on('click', '.nav-link', function (e) {
       e.preventDefault();
-      const filename = this.getAttribute('data-filename');
+      const filename = $(this).data('filename');
       switchToFile(filename);
     });
 
-    on('#cs-modal .run-button', 'click', function (e) {
+    $('#cs-modal .run-button').click(function (e) {
       e.preventDefault();
-      const subj = val('#cs-subject');
+      const subj = $('#cs-subject').val();
       if (currentFile) {
         openFiles[currentFile].value = monacoEditor.getValue();
         openFiles[currentFile].saved = true;
@@ -160,16 +160,15 @@ onDocumentReady(function () {
       rpccmd('cs_eval', subj, body);
     });
 
-    window.addEventListener('keydown', function (e) {
+    $(window).on('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        trigger('#cs-modal .run-button', 'click');
+        $('#cs-modal .run-button').trigger('click');
       }
     });
 
-    on('#rpc-events', 'rpc-cs_edit', function (e) {
-      const [subj, body] = e.detail;
-      if (subj) val('#cs-subject', subj);
+    $('#rpc-events').on('rpc-cs_edit', function (e, subj, body) {
+      if (subj) $('#cs-subject').val(subj);
       if (body) openFileTab(subj || 'file.fenia', fixindent(tabsize8to4, body));
       
       // Use Bootstrap 5 native Modal API instead of jQuery
@@ -180,10 +179,10 @@ onDocumentReady(function () {
   });
 });
 
-onDelegate('#editor-tabs', 'click', '.tab-close', function (e) {
+$('#editor-tabs').on('click', '.tab-close', function (e) {
   e.stopPropagation();
-  const filename = this.getAttribute('data-filename');
-  this.closest('li').remove();
+  const filename = $(this).data('filename');
+  $(this).closest('li').remove();
   delete openFiles[filename];
 
   if (currentFile === filename) {
@@ -193,7 +192,7 @@ onDelegate('#editor-tabs', 'click', '.tab-close', function (e) {
     } else {
       monacoEditor.setValue('');
       currentFile = null;
-      val('#cs-subject', '');
+      $('#cs-subject').val('');
     }
   }
 });
@@ -201,7 +200,7 @@ onDelegate('#editor-tabs', 'click', '.tab-close', function (e) {
 function openFileTab(filename, content) {
   if (!openFiles[filename]) {
     openFiles[filename] = { value: content, saved: true };
-    append('#editor-tabs', `
+    $('#editor-tabs').append(`
       <li class="nav-item">
         <a class="nav-link d-flex align-items-center justify-content-between pe-1" data-filename="${filename}" href="#">
           <span>${filename}</span>
@@ -226,25 +225,21 @@ function switchToFile(filename) {
 
   currentFile = filename;
 
-  const navLinks = document.querySelectorAll('#editor-tabs .nav-link');
-  navLinks.forEach(link => removeClass(link, 'active'));
-  const targetLink = document.querySelector(`#editor-tabs .nav-link[data-filename="${filename}"]`);
-  if (targetLink) addClass(targetLink, 'active');
+  $('#editor-tabs .nav-link').removeClass('active');
+  $(`#editor-tabs .nav-link[data-filename="${filename}"]`).addClass('active');
 
   monacoEditor.setValue(openFiles[filename].value);
-  val('#cs-subject', filename);
+  $('#cs-subject').val(filename);
 }
 
 function markTabAsUnsaved(filename) {
-  const tab = document.querySelector(`#editor-tabs .nav-link[data-filename="${filename}"] span`);
-  if (tab && !tab.textContent.startsWith('● ')) {
-    tab.textContent = '● ' + filename;
+  const $tab = $(`#editor-tabs .nav-link[data-filename="${filename}"] span`);
+  if (!$tab.text().startsWith('● ')) {
+    $tab.text('● ' + filename);
   }
 }
 
 function markTabAsSaved(filename) {
-  const tab = document.querySelector(`#editor-tabs .nav-link[data-filename="${filename}"] span`);
-  if (tab) {
-    tab.textContent = filename;
-  }
+  const $tab = $(`#editor-tabs .nav-link[data-filename="${filename}"] span`);
+  $tab.text(filename);
 }

@@ -1,4 +1,4 @@
-import { onDocumentReady, on, attr } from './utils/domUtils.js';
+import $ from 'jquery';
 import getSessionId from './sessionid.js';
 import placeholders from './data/placeholders.json';
 
@@ -58,14 +58,13 @@ function createPlaceholder(loc) {
   return '';
 }
 
-onDocumentReady(function () {
-  on('#rpc-events', 'rpc-prompt', function (e) {
-    const b = e.detail[0];
+$(document).ready(function () {
+  $('#rpc-events').on('rpc-prompt', function (e, b) {
     var loc = {
       area: b.area,
       vnum: b.vnum,
     };
-    attr('#input input', 'placeholder', createPlaceholder(loc));
+    $('#input input').attr('placeholder', createPlaceholder(loc));
     bcastLocation(loc);
   });
 });

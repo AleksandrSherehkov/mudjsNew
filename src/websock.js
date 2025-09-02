@@ -1,5 +1,5 @@
 import { store, onConnected, onDisconnected } from './store.js';
-import { onDocumentReady, on, trigger } from './utils/domUtils.js';
+import $ from 'jquery';
 import Telnet from './telnet';
 
 const PROTO_VERSION = 'DreamLand Web Client/2.1';
@@ -29,45 +29,42 @@ function send(text) {
 }
 
 function process(s) {
-  trigger('.terminal', 'output', [s]);
+  $('.terminal').trigger('output', [s]);
 }
 
 // attach default RPC handlers
-onDocumentReady(function () {
+$(document).ready(function () {
   const telnet = new Telnet();
 
   telnet.handleRaw = function (s) {
     process(s);
   };
 
-  on('#rpc-events', 'rpc-console_out', function (e) {
-    const b = e.detail[0];
-    telnet.process(b);
-  });
+  $('#rpc-events')
+    .on('rpc-console_out', function (e, b) {
+      
+      telnet.process(b);
+    })
+    .on('rpc-alert', function (e, b) {
+      alert(b);
+    })
+    .on('rpc-version', function (e, version, nonce) {
+      console.log('rpc-version', version, nonce);
 
-  on('#rpc-events', 'rpc-alert', function (e) {
-    const b = e.detail[0];
-    alert(b);
-  });
+      if (version !== PROTO_VERSION) {
+        process(
+          '\n\u001b[1;31mВерсия клиента (' +
+            PROTO_VERSION +
+            ') не совпадает с версией сервера (' +
+            version +
+            ').\n' +
+            'Обнови страницу, если не поможет - почисти кеши.\u001b[0;37m\n'
+        );
+        ws.close();
+      }
 
-  on('#rpc-events', 'rpc-version', function (e) {
-    const [version, nonce] = e.detail;
-    console.log('rpc-version', version, nonce);
-
-    if (version !== PROTO_VERSION) {
-      process(
-        '\n\u001b[1;31mВерсия клиента (' +
-          PROTO_VERSION +
-          ') не совпадает с версией сервера (' +
-          version +
-          ').\n' +
-          'Обнови страницу, если не поможет - почисти кеши.\u001b[0;37m\n'
-      );
-      ws.close();
-    }
-
-    ws.nonce = nonce;
-  });
+      ws.nonce = nonce;
+    });
 });
 
 function connect() {
@@ -81,7 +78,7 @@ function connect() {
     b = decodeURIComponent(escape(b));
     b = JSON.parse(b);
     
-    trigger('#rpc-events', 'rpc-' + b.command, b.args);
+    $('#rpc-events').trigger('rpc-' + b.command, b.args);
   };
 
   ws.onopen = function () {

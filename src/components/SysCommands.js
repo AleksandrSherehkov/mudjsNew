@@ -1,4 +1,4 @@
-import { trigger } from '../utils/domUtils.js';
+import $ from 'jquery';
 import hotkeyCmd, { hotkeyHelp } from './sysCommands/hotkey'
 import propertiesCmd, { settingsHelp } from './sysCommands/userProperties'
 import helpCmd, { helpHelp } from './sysCommands/help'
@@ -68,7 +68,7 @@ const Commands = {
         payload: function(value) {
             const { sysCmd, sysCmdArgs } = splitCommand(value)
             for (let i = 0; i < parseInt(sysCmd); i++) {
-                trigger('.trigger', 'input', ['' + sysCmdArgs.trim()]);
+                $('.trigger').trigger('input', ['' + sysCmdArgs.trim()]);
             }
         },
         help: multiCmdHelp
@@ -147,7 +147,7 @@ export function splitCommand(value) {
 
 export function echoHtml(html) {
     if (!html) return
-    trigger('.terminal', 'output-html', html)
+    $('.terminal').trigger('output-html', html)
 }
 
 export default  Commands

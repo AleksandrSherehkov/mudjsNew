@@ -1,5 +1,6 @@
-import { onDocumentReady, on, show, hide } from './utils/domUtils.js';
+import $ from 'jquery';
 import loader from '@monaco-editor/loader';
+import 'devbridge-autocomplete';
 import { rpccmd } from './websock';
 import { setupSpeechRecognition } from './speech';
 
@@ -39,29 +40,30 @@ function getResponsiveEditorParams() {
 }
 
 function initHelpIds() {
-  const heditLookup = document.querySelector('#textedit-modal input');
+  const heditLookup = $('#textedit-modal input');
 
-  fetch('hedit.json')
-    .then(response => response.json())
-    .then(function (data) {
-      // TODO: Implement native autocomplete or use a React component
-      // For now, just add a simple datalist
-      const datalist = document.createElement('datalist');
-      datalist.id = 'help-suggestions';
-      
-      data.forEach(item => {
-        const option = document.createElement('option');
-        option.value = `${item.id}: ${item.kw.toLowerCase()}`;
-        datalist.appendChild(option);
+  $.get(
+    'hedit.json',
+    function (data) {
+      const topics = $.map(data, item => ({
+        value: `${item.id}: ${item.kw.toLowerCase()}`,
+        data: item.id,
+      }));
+
+      heditLookup.autocomplete({
+        lookup: topics,
+        lookupLimit: 20,
+        autoSelectFirst: true,
+        showNoSuggestionNotice: true,
+        noSuggestionNotice: 'Справка не найдена',
+        onSelect: () => $('#textedit-modal .editor').focus(),
       });
-      
-      heditLookup.setAttribute('list', 'help-suggestions');
-      document.body.appendChild(datalist);
-    })
-    .catch(() => {
-      console.log('Cannot retrieve help ids.');
-      hide('#textedit-modal input');
-    });
+    },
+    'json'
+  ).fail(() => {
+    console.log('Cannot retrieve help ids.');
+    $('#textedit-modal input').hide();
+  });
 }
 
 function initVoiceRecognition(monaco) {
@@ -80,9 +82,9 @@ function initVoiceRecognition(monaco) {
   });
 }
 
-onDocumentReady(() => {
+$(document).ready(() => {
   loader.init().then(monaco => {
-    const editorElement = document.querySelector('#textedit-modal .editor');
+    const editorElement = $('#textedit-modal .editor')[0];
     const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
 
     monacoEditor = monaco.editor.create(editorElement, {
@@ -133,8 +135,7 @@ onDocumentReady(() => {
       }
     });
 
-    on('#rpc-events', 'rpc-editor_open', (e) => {
-      const [text, arg] = e.detail;
+    $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
       monacoEditor.setValue(text || '');
       
       // Use Bootstrap 5 native Modal API instead of jQuery
@@ -143,31 +144,26 @@ onDocumentReady(() => {
       modal.show();
 
       if (arg === 'help') {
-        show('#textedit-modal input');
+        $('#textedit-modal input').show();
         initHelpIds();
       } else {
-        hide('#textedit-modal input');
+        $('#textedit-modal input').hide();
       }
 
-      const saveButton = document.querySelector('#textedit-modal .save-button');
-      const cancelButton = document.querySelector('#textedit-modal .cancel-button');
-      
-      // Remove existing event listeners
-      const newSaveButton = saveButton.cloneNode(true);
-      const newCancelButton = cancelButton.cloneNode(true);
-      saveButton.parentNode.replaceChild(newSaveButton, saveButton);
-      cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
+      $('#textedit-modal .save-button')
+        .off()
+        .click(e => {
+          e.preventDefault();
+          const val = monacoEditor.getValue();
+          rpccmd('editor_save', val);
+        });
 
-      newSaveButton.addEventListener('click', e => {
-        e.preventDefault();
-        const val = monacoEditor.getValue();
-        rpccmd('editor_save', val);
-      });
-
-      newCancelButton.addEventListener('click', e => {
-        e.preventDefault();
-        modal.hide();
-      });
+      $('#textedit-modal .cancel-button')
+        .off()
+        .click(e => {
+          e.preventDefault();
+          modal.hide();
+        });
     });
   });
 });

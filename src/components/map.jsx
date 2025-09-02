@@ -6,7 +6,7 @@ import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { Add, Remove } from '@mui/icons-material';
-import { find, addClass, removeClass, css, html } from '../utils/domUtils.js';
+import $ from 'jquery';
 
 import lastLocation from '../location';
 
@@ -37,8 +37,7 @@ const useMapSource = location => {
     const mapName = location.area.replace(/are$/, 'html');
     const mapUrl = `/maps/sources/${mapName}`;
 
-    fetch(mapUrl)
-      .then(response => response.text())
+    $.get(mapUrl)
       .then(map =>
         setMapSource(
           map.replaceAll(
@@ -128,19 +127,17 @@ export default function Map() {
   const mapElement = useRef(null);
 
   const recenterPosition = () => {
-    const activeRooms = find(mapElement.current, '.room.active');
-    if (!activeRooms.length) return;
-    activeRooms[0].scrollIntoView({ block: 'center', inline: 'center' });
+    const $active = $(mapElement.current).find('.room.active');
+    if (!$active.length) return;
+    $active.get(0).scrollIntoView({ block: 'center', inline: 'center' });
   };
 
   const highlightPosition = useCallback(() => {
     const room = location.vnum;
-    const rooms = find(mapElement.current, '.room');
-    rooms.forEach(roomEl => removeClass(roomEl, 'active'));
+    $(mapElement.current).find('.room').removeClass('active');
 
     if (room && room !== '') {
-      const targetRooms = find(mapElement.current, `.room-${room}`);
-      targetRooms.forEach(roomEl => addClass(roomEl, 'active'));
+      $(mapElement.current).find(`.room-${room}`).addClass('active');
       recenterPosition();
     }
   }, [location.vnum]);
@@ -150,21 +147,21 @@ export default function Map() {
   useEffect(() => {
     const cacheFontSize = localStorage.getItem(mapFontSizeKey);
     if (cacheFontSize != null) {
-      css(mapElement.current, 'font-size', cacheFontSize + 'px');
+      $(mapElement.current).css('font-size', cacheFontSize + 'px');
     }
   }, []);
 
   const changeFontSize = delta => {
-    const map = mapElement.current;
-    const style = css(map, 'font-size');
+    const map = $(mapElement.current);
+    const style = map.css('font-size');
     const fontSize = parseFloat(style);
-    css(map, 'font-size', fontSize + delta + 'px');
+    map.css('font-size', fontSize + delta + 'px');
     localStorage.setItem(mapFontSizeKey, fontSize + delta);
     recenterPosition();
   };
 
   useEffect(() => {
-    html(mapElement.current, mapSource);
+    $(mapElement.current).html(mapSource);
     highlightPosition();
   }, [mapSource, highlightPosition]);
 

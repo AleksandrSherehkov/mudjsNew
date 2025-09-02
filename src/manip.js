@@ -1,6 +1,7 @@
 import areasJson from './data/areas.json';
 import { send, ws } from './websock.js';
 import { echo } from './input.js';
+import $ from 'jquery';
 
 // Create the list of all possible area file names (without ".are" bit).
 const areas = areasJson.map(a => a.file.replace('.are', ''));
@@ -60,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Replace colour "<c c='fgbr'/>" tags coming from the server with spans.
 function colorParseAndReplace(span) {
-  const cElements = span.querySelectorAll('c');
+  const cElements = span[0].querySelectorAll('c');
   cElements.forEach(function (element) {
     const style = element.getAttribute('c');
     const newSpan = document.createElement('span');
@@ -76,7 +77,7 @@ function colorParseAndReplace(span) {
 function manipParseAndReplace(span) {
   // Replace placeholders [map=filename.are] with buttons that open a map,
   // or with an empty string, if area is not found in the areas.json.
-  var html = span.innerHTML
+  var html = span.html()
     .replace(/\[map=([-0-9a-z_]{1,15})\.are\]/g, function (match, p1) {
       if (areas.indexOf(p1) === -1) return '';
       return (
@@ -161,10 +162,10 @@ function manipParseAndReplace(span) {
     }
   );
 
-  span.innerHTML = html;
+  span.html(html);
 
   // Replace "<hc>command</hc>" tags surrounding commands to send as is.
-  const hcElements = span.querySelectorAll('hc');
+  const hcElements = span[0].querySelectorAll('hc');
   hcElements.forEach(function (element) {
     const action = element.textContent;
     const newSpan = document.createElement('span');
@@ -180,7 +181,7 @@ function manipParseAndReplace(span) {
 
   // Replace "<hl>hyper link</hl>" tags surrounding hyper links.
   // Basic sanitization of the links.
-  const hlElements = span.querySelectorAll('hl');
+  const hlElements = span[0].querySelectorAll('hl');
   hlElements.forEach(function (element) {
     const href = element.textContent;
     if (!href.startsWith('http')) return;

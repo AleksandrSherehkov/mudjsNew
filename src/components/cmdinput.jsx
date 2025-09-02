@@ -79,7 +79,8 @@ const CmdInput = () => {
     const handleKey = e => {
       if (e.which === 9) return;
       const input = $('#input input');
-      if ($('body.modal-open').length !== 0) return;
+      // Replace jQuery modal check with native Bootstrap 5 check
+      if (document.body.classList.contains('modal-open')) return;
 
       if (!sendHotKeyCmd(e)) {
         if (e.ctrlKey || e.altKey) return;

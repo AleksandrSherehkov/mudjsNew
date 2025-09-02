@@ -170,7 +170,11 @@ $(document).ready(function () {
     $('#rpc-events').on('rpc-cs_edit', function (e, subj, body) {
       if (subj) $('#cs-subject').val(subj);
       if (body) openFileTab(subj || 'file.fenia', fixindent(tabsize8to4, body));
-      $('#cs-modal').modal('show');
+      
+      // Use Bootstrap 5 native Modal API instead of jQuery
+      const modalElement = document.getElementById('cs-modal');
+      const modal = new window.bootstrap.Modal(modalElement);
+      modal.show();
     });
   });
 });

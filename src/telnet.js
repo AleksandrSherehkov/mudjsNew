@@ -18,6 +18,11 @@ class Telnet {
   }
 
   process(b) {
+    // Ensure b is a string
+    if (typeof b !== 'string') {
+      b = String(b);
+    }
+    
     let s = '';
 
     for (let i = 0; i < b.length; i++) {

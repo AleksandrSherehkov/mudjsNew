@@ -1,6 +1,7 @@
 import loader from '@monaco-editor/loader';
 import { send } from './websock.js';
 import notify from './notify.js';
+import $ from 'jquery';
 
 const echo = txt => {
   const terminal = document.querySelector('.terminal');
@@ -14,7 +15,7 @@ let keydown = function () {};
 const applySettings = s => {
   const settings = `return function(params) {
     'use strict';
-    let { keydown, notify, send, echo, mudprompt } = params;
+    let { keydown, notify, send, echo, mudprompt, $ } = params;
     (function() { ${s} })();
     return { keydown };
   }`;
@@ -25,6 +26,7 @@ const applySettings = s => {
     send,
     echo,
     mudprompt: window.mudprompt,
+    $: $,
   });
 
   keydown = exports.keydown;

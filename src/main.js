@@ -1,4 +1,3 @@
-import $ from 'jquery';
 import * as bootstrap from 'bootstrap';
 // Expose Bootstrap to global scope for use in other modules
 window.bootstrap = bootstrap;
@@ -7,6 +6,7 @@ import { connect } from './websock';
 import lastLocation from './location';
 import getSessionId from './sessionid.js';
 import historydb from './historydb';
+import { onDocumentReady, on, css, createElement } from './utils/domUtils.js';
 
 import './notify';
 import './input';
@@ -20,12 +20,12 @@ import './main.css';
 const sessionId = getSessionId();
 let propertiesStorage = PropertiesStorage;
 
-$(window).bind('beforeunload', function () {
+window.addEventListener('beforeunload', function () {
   return 'leaving already?';
 });
 
-$(document).ready(function () {
-  $('#logs-button').click(function (e) {
+onDocumentReady(function () {
+  on('#logs-button', 'click', function (e) {
     var logs = [];
 
     e.preventDefault();
@@ -44,10 +44,10 @@ $(document).ready(function () {
         logs = null;
 
         // create a link
-        var link = $('<a>').attr({
+        var link = createElement('a', {
           href: url,
           download: 'mudjs.log',
-        })[0];
+        });
 
         // click on it
         setTimeout(function () {
@@ -74,7 +74,7 @@ $(document).ready(function () {
       });
   });
 
-  $('#map-button').click(function (e) {
+  on('#map-button', 'click', function (e) {
     e.preventDefault();
 
     if (!lastLocation()) {
@@ -96,10 +96,10 @@ $(document).ready(function () {
   var terminalFontSizeKey = 'terminalFontSize';
 
   function changeFontSize(delta) {
-    var terminal = $('.terminal');
-    var style = terminal.css('font-size');
+    var terminal = document.querySelector('.terminal');
+    var style = css(terminal, 'font-size');
     var fontSize = parseFloat(style);
-    terminal.css('font-size', fontSize + delta + 'px');
+    css(terminal, 'font-size', fontSize + delta + 'px');
     localStorage.setItem(terminalFontSizeKey, fontSize + delta);
     propertiesStorage['terminalFontSize'] = fontSize + delta;
     localStorage.properties = JSON.stringify(propertiesStorage);
@@ -110,23 +110,23 @@ $(document).ready(function () {
       ? JSON.parse(localStorage.properties)['terminalFontSize']
       : propertiesStorage;
     if (cacheFontSize != null) {
-      var terminal = $('.terminal');
-      terminal.css('font-size', cacheFontSize + 'px');
+      var terminal = document.querySelector('.terminal');
+      css(terminal, 'font-size', cacheFontSize + 'px');
     }
   }
 
-  $('#font-plus-button').click(function (e) {
+  on('#font-plus-button', 'click', function (e) {
     e.preventDefault();
     changeFontSize(fontDelta);
   });
 
-  $('#font-minus-button').click(function (e) {
+  on('#font-minus-button', 'click', function (e) {
     e.preventDefault();
     changeFontSize(-fontDelta);
   });
 
   /* Save layout size */
-  $('.layout-splitter').on('click', function () {
+  on('.layout-splitter', 'click', function () {
     propertiesStorage['terminalLayoutWidth'] =
       document.querySelector('.terminal-wrap').getBoundingClientRect().width ||
       0;

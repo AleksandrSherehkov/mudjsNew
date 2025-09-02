@@ -1,22 +1,22 @@
-import $ from 'jquery';
+import { onDocumentReady, on, trigger } from './utils/domUtils.js';
 
 let notificationPermission = Notification.permission;
 
 // Один раз реєструємо обробник після першого кліку
-$(document).one('click', () => {
+document.addEventListener('click', () => {
   if ('Notification' in window && notificationPermission !== 'granted') {
     Notification.requestPermission().then(perm => {
       notificationPermission = perm;
     });
   }
-});
+}, { once: true });
 
 // Реєстрація події при готовності документа
-$(document).ready(function () {
+onDocumentReady(function () {
   if ('Notification' in window && notificationPermission === 'granted') {
-    $('#rpc-events').on('rpc-notify', function (e, text) {
+    on('#rpc-events', 'rpc-notify', function (e) {
       if (document.hidden) {
-        new Notification(text);
+        new Notification(e.detail[0]);
       }
     });
   }
@@ -24,5 +24,5 @@ $(document).ready(function () {
 
 // Функція виклику повідомлення
 export default function notify(txt) {
-  $('#rpc-events').trigger('rpc-notify', [txt]);
+  trigger('#rpc-events', 'rpc-notify', [txt]);
 }

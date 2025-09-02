@@ -1,6 +1,6 @@
 // src/components/windowletsPanel/playerMessagesStore.js
 
-import $ from 'jquery';
+import { on } from './utils/domUtils.js';
 
 const MAX_MESSAGES = 50;
 const globalMessages = [];
@@ -13,7 +13,8 @@ const notifyListeners = () => {
 };
 
 // Працює постійно незалежно від монтованих компонентів
-const handler = (e, text) => {
+const handler = (e) => {
+  const text = e.detail[0];
   const triggers = {
     говоришь: 'say',
     говорит: 'say',
@@ -60,7 +61,7 @@ const handler = (e, text) => {
 export const clearMessages = () => {};
 
 if (typeof window !== 'undefined' && !window._playerChatInitialized) {
-  $('.trigger').on('text', handler);
+  on('.trigger', 'text', handler);
   window._playerChatInitialized = true;
 }
 

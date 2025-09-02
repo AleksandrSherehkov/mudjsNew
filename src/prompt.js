@@ -1,10 +1,9 @@
-import $ from 'jquery';
-import 'devbridge-autocomplete';
+import { onDocumentReady, onDelegate, on, attr } from './utils/domUtils.js';
 
-$(document).ready(function () {
+onDocumentReady(function () {
   // Обработка клика по элементам с data-hint
-  $('body').on('click', '[data-hint]', function (e) {
-    const modalElement = document.getElementById($(this).data('hint'));
+  onDelegate('body', 'click', '[data-hint]', function (e) {
+    const modalElement = document.getElementById(attr(this, 'data-hint'));
     if (modalElement && window.bootstrap && window.bootstrap.Modal) {
       const modal = new window.bootstrap.Modal(modalElement);
       modal.toggle();
@@ -14,11 +13,12 @@ $(document).ready(function () {
   });
 
   // Слушаем события от сервера и обновляем глобальный mudprompt
-  $('#rpc-events').on('rpc-prompt', function (e, b) {
+  on('#rpc-events', 'rpc-prompt', function (e) {
+    const b = e.detail[0];
     if (window.mudprompt === undefined) {
       window.mudprompt = b;
     } else {
-      $.extend(window.mudprompt, b);
+      Object.assign(window.mudprompt, b);
     }
   });
 });

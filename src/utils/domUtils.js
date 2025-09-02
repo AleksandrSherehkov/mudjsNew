@@ -184,14 +184,64 @@ export function append(parent, child) {
 }
 
 /**
+ * Find elements within a parent and call function for each
+ */
+export function find(parent, selector) {
+  const parentElement = typeof parent === 'string' ? document.querySelector(parent) : parent;
+  return parentElement ? Array.from(parentElement.querySelectorAll(selector)) : [];
+}
+
+/**
+ * Each helper to iterate over elements
+ */
+export function each(elements, callback) {
+  if (elements && elements.length !== undefined) {
+    Array.from(elements).forEach((element, index) => {
+      callback.call(element, index, element);
+    });
+  }
+}
+
+/**
+ * Get/set HTML content
+ */
+export function html(element, content) {
+  const targetElement = typeof element === 'string' ? document.querySelector(element) : element;
+  if (!targetElement) return null;
+  
+  if (content === undefined) {
+    return targetElement.innerHTML;
+  } else {
+    targetElement.innerHTML = content;
+    return targetElement;
+  }
+}
+
+/**
+ * Get text content
+ */
+export function text(element) {
+  const targetElement = typeof element === 'string' ? document.querySelector(element) : element;
+  return targetElement ? targetElement.textContent : '';
+}
+
+/**
  * Replace with helper to replace $(element).replaceWith()
  */
 export function replaceWith(element, newContent) {
   const targetElement = typeof element === 'string' ? document.querySelector(element) : element;
   if (targetElement) {
-    if (typeof newContent === 'string') {
+    if (typeof newContent === 'function') {
+      // Handle function callback like jQuery
+      const result = newContent.call(targetElement);
+      if (result instanceof Element) {
+        targetElement.parentNode.replaceChild(result, targetElement);
+      } else if (typeof result === 'string') {
+        targetElement.outerHTML = result;
+      }
+    } else if (typeof newContent === 'string') {
       targetElement.outerHTML = newContent;
-    } else {
+    } else if (newContent instanceof Element) {
       targetElement.parentNode.replaceChild(newContent, targetElement);
     }
   }

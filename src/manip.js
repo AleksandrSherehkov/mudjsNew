@@ -76,7 +76,7 @@ function colorParseAndReplace(span) {
 function manipParseAndReplace(span) {
   // Replace placeholders [map=filename.are] with buttons that open a map,
   // or with an empty string, if area is not found in the areas.json.
-  var html = span.innerHTML
+  var html = span.html()
     .replace(/\[map=([-0-9a-z_]{1,15})\.are\]/g, function (match, p1) {
       if (areas.indexOf(p1) === -1) return '';
       return (
@@ -161,7 +161,7 @@ function manipParseAndReplace(span) {
     }
   );
 
-  span.innerHTML = html;
+  span.html(html);
 
   // Replace "<hc>command</hc>" tags surrounding commands to send as is.
   const hcElements = span[0].querySelectorAll('hc');
@@ -197,7 +197,7 @@ function manipParseAndReplace(span) {
   });
 
   // Replace "<hh>article name</hh>" or "<hh id='333'>" tags surrounding help articles.
-  const hhElements = span.querySelectorAll('hh');
+  const hhElements = span[0].querySelectorAll('hh');
   hhElements.forEach(function (element) {
     var article = element.textContent;
     var id = element.getAttribute('id') || article;
@@ -223,7 +223,7 @@ function manipParseAndReplace(span) {
   });
 
   // Replace "<hg>skill group</hg>" tags surrounding group names.
-  const hgElements = span.querySelectorAll('hg');
+  const hgElements = span[0].querySelectorAll('hg');
   hgElements.forEach(function (element) {
     var article = element.textContent;
 
@@ -237,7 +237,7 @@ function manipParseAndReplace(span) {
   });
 
   // Replace "<hs>speedwalk</hs>" tags with 'run speedwalk' command.
-  const hsElements = span.querySelectorAll('hs');
+  const hsElements = span[0].querySelectorAll('hs');
   hsElements.forEach(function (element) {
     var article = element.textContent;
 
@@ -251,7 +251,7 @@ function manipParseAndReplace(span) {
   });
 
   // Replace item manipulation "<m i='234234' c='take $,put $ 12348'/>" tags surrounding every item.
-  const mElements = span.querySelectorAll('m');
+  const mElements = span[0].querySelectorAll('m');
   mElements.forEach(function (element) {
     // Populate menu node for each item based on the 'c' and 'l' attributes containing command lists.
     // Mark menu nodes so that they can be removed and not mess up the triggers.

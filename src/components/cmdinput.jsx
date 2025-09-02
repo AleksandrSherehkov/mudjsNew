@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MicIcon from '@mui/icons-material/Mic';
 import { useSelector } from 'react-redux';
-import $ from 'jquery';
+import { onDelegate, attr, trigger, is } from '../utils/domUtils.js';
 import { echo } from '../input';
 import { send, connect } from '../websock';
 import { getKeydown } from '../settings';
@@ -25,18 +25,18 @@ const input_history = localStorage.history
 let position = input_history.length;
 let current_cmd = '';
 
-$('body').on('click', '.builtin-cmd', function (e) {
-  const cmd = $(e.currentTarget);
-  const { sysCmd, sysCmdArgs } = splitCommand(cmd.attr('data-action'));
+onDelegate('body', 'click', '.builtin-cmd', function (e) {
+  const cmd = e.currentTarget;
+  const { sysCmd, sysCmdArgs } = splitCommand(attr(cmd, 'data-action'));
   const command = getSystemCmd(sysCmd);
-  echo(cmd.attr('data-echo'));
+  echo(attr(cmd, 'data-echo'));
   if (!command) return errCmdDoesNotExist;
   Commands[command]['payload'](sysCmdArgs);
 });
 
 const scrollPage = dir => {
-  const wrap = $('.terminal-wrap');
-  wrap.scrollTop(wrap.scrollTop() + wrap.height() * dir);
+  const wrap = document.querySelector('.terminal-wrap');
+  wrap.scrollTop = wrap.scrollTop + wrap.offsetHeight * dir;
 };
 
 const CmdInput = () => {
@@ -78,13 +78,13 @@ const CmdInput = () => {
   useEffect(() => {
     const handleKey = e => {
       if (e.which === 9) return;
-      const input = $('#input input');
+      const input = document.querySelector('#input input');
       // Replace jQuery modal check with native Bootstrap 5 check
       if (document.body.classList.contains('modal-open')) return;
 
       if (!sendHotKeyCmd(e)) {
         if (e.ctrlKey || e.altKey) return;
-        if (input.is(':focus') || $('#help input').is(':focus')) return;
+        if (is(input, ':focus') || is('#help input', ':focus')) return;
 
         if (document.getElementById('inputBox')) {
           textInput.current.focus();
@@ -242,9 +242,9 @@ const CmdInput = () => {
     }
 
     const lines = userCommand.split('\n');
-    $(lines).each(function () {
-      echo(this);
-      $('.trigger').trigger('input', [this]);
+    lines.forEach(line => {
+      echo(line);
+      trigger('.trigger', 'input', [line]);
     });
   };
 

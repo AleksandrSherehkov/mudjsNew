@@ -1,4 +1,4 @@
-import { onDocumentReady, on, show, hide, off } from './utils/domUtils.js';
+import { onDocumentReady, on, show, hide } from './utils/domUtils.js';
 import loader from '@monaco-editor/loader';
 import { rpccmd } from './websock';
 import { setupSpeechRecognition } from './speech';

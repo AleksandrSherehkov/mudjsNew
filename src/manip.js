@@ -57,7 +57,7 @@ function colorParseAndReplace(span) {
       var result = createElement('span');
       const childNodes = contents(this);
       childNodes.forEach(child => result.appendChild(child));
-      addClass(result, style);
+      result.classList.add(style);
       return result;
     });
   });

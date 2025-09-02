@@ -1,6 +1,99 @@
+// Simplified wrapper to minimize changes to complex terminal logic
+const $ = (selector) => {
+  if (typeof selector === 'function') {
+    // Handle $(function() {}) pattern
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', selector);
+    } else {
+      selector();
+    }
+    return null;
+  }
+  
+  if (typeof selector === 'string') {
+    const element = document.querySelector(selector);
+    if (!element) return { 
+      find: () => ({ each: () => {}, length: 0 }),
+      on: () => {},
+      trigger: () => {},
+      html: () => '',
+      text: () => '',
+      clone: () => ({ find: () => ({ remove: () => {} }), text: () => '' }),
+      attr: () => '',
+      appendTo: () => {},
+      append: () => '',
+      remove: () => {},
+      length: 0
+    };
+    
+    return {
+      find: (sel) => {
+        const elements = Array.from(element.querySelectorAll(sel));
+        return {
+          each: (callback) => elements.forEach((el, i) => callback.call(el, i)),
+          length: elements.length
+        };
+      },
+      on: (event, handler) => {
+        element.addEventListener(event, (e) => {
+          // Convert to jQuery-like event format
+          handler(e, e.detail ? e.detail[0] : undefined);
+        });
+      },
+      trigger: (event, data) => {
+        const customEvent = new CustomEvent(event, { detail: data, bubbles: true });
+        element.dispatchEvent(customEvent);
+      },
+      html: (content) => {
+        if (content === undefined) return element.innerHTML;
+        element.innerHTML = content;
+        return this;
+      },
+      text: () => element.textContent,
+      clone: () => {
+        const cloned = element.cloneNode(true);
+        return {
+          find: (sel) => ({
+            remove: () => {
+              const found = cloned.querySelectorAll(sel);
+              found.forEach(el => el.remove());
+            }
+          }),
+          text: () => cloned.textContent
+        };
+      },
+      attr: (name, value) => {
+        if (value === undefined) return element.getAttribute(name);
+        element.setAttribute(name, value);
+        return this;
+      },
+      appendTo: (target) => {
+        if (typeof target === 'string') {
+          const targetEl = document.querySelector(target);
+          if (targetEl) targetEl.appendChild(element);
+        } else if (target && target.appendChild) {
+          target.appendChild(element);
+        }
+      },
+      append: (content) => {
+        if (typeof content === 'string') {
+          element.insertAdjacentHTML('beforeend', content);
+        } else if (content && content.nodeType) {
+          element.appendChild(content);
+        }
+        return this;
+      },
+      remove: () => element.remove(),
+      length: 1,
+      get: (index) => element
+    };
+  }
+  
+  return {};
+};
+
 import React from 'react';
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import $ from 'jquery';
 
 import historyDb from '../historydb';
 import ansi2html from '../ansi2html';
@@ -34,22 +127,27 @@ const loadChunks = (startId, direction, maxlen) => {
       // direction is backward, we have initial key and no records returned => initial key is the first one in the database
       if (startId && direction && chunks.length === 0) firstChunkId = startId;
 
-      return chunks.map(({ id, value }) =>
-        $('<div>').append(value).attr('data-chunk-id', id)
-      );
+      return chunks.map(({ id, value }) => {
+        const div = document.createElement('div');
+        div.innerHTML = value;
+        div.setAttribute('data-chunk-id', id);
+        return div;
+      });
     });
 };
 
 function terminalInit(wrap) {
-  const terminal = wrap.find('.terminal');
+  const terminal = find(wrap, '.terminal')[0];
 
-  const append = $chunk => {
-    $chunk.appendTo(terminal);
+  const appendToTerminal = chunk => {
+    terminal.appendChild(chunk);
 
-    while (terminal.html().length > maxBytesOnScreen)
-      terminal.children(':first').remove();
+    while (terminal.innerHTML.length > maxBytesOnScreen) {
+      const firstChild = terminal.firstElementChild;
+      if (firstChild) firstChild.remove();
+    }
 
-    wrap.scrollTop(terminal.height());
+    wrap.scrollTop = terminal.offsetHeight;
   };
   const atBottom = () => {
     const lastMessage = terminal.children().last();
@@ -114,7 +212,7 @@ function terminalInit(wrap) {
         });
         // only append a DOM node if we're at the bottom
         if (autoScrollEnabled) {
-          append($chunk);
+          appendToTerminal($chunk);
         } else {
           wrap.trigger('bump-unread', []);
         }

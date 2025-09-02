@@ -1,7 +1,5 @@
 // src/components/windowletsPanel/playerMessagesStore.js
 
-import $ from 'jquery';
-
 const MAX_MESSAGES = 50;
 const globalMessages = [];
 
@@ -60,7 +58,10 @@ const handler = (e, text) => {
 export const clearMessages = () => {};
 
 if (typeof window !== 'undefined' && !window._playerChatInitialized) {
-  $('.trigger').on('text', handler);
+  const trigger = document.querySelector('.trigger');
+  if (trigger) {
+    trigger.addEventListener('text', handler);
+  }
   window._playerChatInitialized = true;
 }
 

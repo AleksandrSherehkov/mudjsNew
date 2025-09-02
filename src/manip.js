@@ -1,7 +1,6 @@
 import areasJson from './data/areas.json';
 import { send, ws } from './websock.js';
 import { echo } from './input.js';
-import $ from 'jquery';
 
 // Create the list of all possible area file names (without ".are" bit).
 const areas = areasJson.map(a => a.file.replace('.are', ''));
@@ -77,7 +76,7 @@ function colorParseAndReplace(span) {
 function manipParseAndReplace(span) {
   // Replace placeholders [map=filename.are] with buttons that open a map,
   // or with an empty string, if area is not found in the areas.json.
-  var html = span.html()
+  var html = span.innerHTML
     .replace(/\[map=([-0-9a-z_]{1,15})\.are\]/g, function (match, p1) {
       if (areas.indexOf(p1) === -1) return '';
       return (
@@ -162,7 +161,7 @@ function manipParseAndReplace(span) {
     }
   );
 
-  span.html(html);
+  span.innerHTML = html;
 
   // Replace "<hc>command</hc>" tags surrounding commands to send as is.
   const hcElements = span[0].querySelectorAll('hc');
@@ -198,9 +197,10 @@ function manipParseAndReplace(span) {
   });
 
   // Replace "<hh>article name</hh>" or "<hh id='333'>" tags surrounding help articles.
-  span.find('hh').each(function () {
-    var article = $(this).contents().text();
-    var id = $(this).attr('id') || article;
+  const hhElements = span.querySelectorAll('hh');
+  hhElements.forEach(function (element) {
+    var article = element.textContent;
+    var id = element.getAttribute('id') || article;
 
     // Split the string into <initial spaces><label ending with non-space><ending spaces>
     var matches = article.match(/^( *)([\0-\uFFFF]*[^ ])( *)$/m);
@@ -213,119 +213,116 @@ function manipParseAndReplace(span) {
     var spaceEnd = matches[3].length;
     var label = matches[2];
 
-    $(this).replaceWith(function () {
-      // Recreate initial and ending spaces as nbsp, so that the underlining link only surrounds the label.
-      var result =
-        '&nbsp;'.repeat(spaceBegin) +
-        $('<span/>')
-          .addClass('manip-cmd')
-          .addClass('manip-link')
-          .attr('data-action', 'help ' + id)
-          .attr('data-echo', 'справка ' + id)
-          .append(label)
-          .get(0).outerHTML +
-        '&nbsp;'.repeat(spaceEnd);
-      return result;
-    });
+    // Recreate initial and ending spaces as nbsp, so that the underlining link only surrounds the label.
+    var result =
+      '&nbsp;'.repeat(spaceBegin) +
+      '<span class="manip-cmd manip-link" data-action="help ' + id + '" data-echo="справка ' + id + '">' + label + '</span>' +
+      '&nbsp;'.repeat(spaceEnd);
+    
+    element.outerHTML = result;
   });
 
   // Replace "<hg>skill group</hg>" tags surrounding group names.
-  span.find('hg').each(function () {
-    var article = $(this).contents();
+  const hgElements = span.querySelectorAll('hg');
+  hgElements.forEach(function (element) {
+    var article = element.textContent;
 
-    $(this).replaceWith(function () {
-      var result = $('<span/>')
-        .addClass('manip-cmd')
-        .attr('data-action', 'glist ' + article.text())
-        .attr('data-echo', 'группаумен ' + article.text())
-        .append(article);
-      return result;
-    });
+    var result = document.createElement('span');
+    result.className = 'manip-cmd';
+    result.setAttribute('data-action', 'glist ' + article);
+    result.setAttribute('data-echo', 'группаумен ' + article);
+    result.textContent = article;
+    
+    element.parentNode.replaceChild(result, element);
   });
 
   // Replace "<hs>speedwalk</hs>" tags with 'run speedwalk' command.
-  span.find('hs').each(function () {
-    var article = $(this).contents();
+  const hsElements = span.querySelectorAll('hs');
+  hsElements.forEach(function (element) {
+    var article = element.textContent;
 
-    $(this).replaceWith(function () {
-      var result = $('<span/>')
-        .addClass('manip-cmd')
-        .addClass('manip-speedwalk')
-        .attr('data-action', 'run ' + article.text())
-        .attr('data-echo', 'бежать ' + article.text())
-        .append(article);
-      return result;
-    });
+    var result = document.createElement('span');
+    result.className = 'manip-cmd manip-speedwalk';
+    result.setAttribute('data-action', 'run ' + article);
+    result.setAttribute('data-echo', 'бежать ' + article);
+    result.textContent = article;
+    
+    element.parentNode.replaceChild(result, element);
   });
 
   // Replace item manipulation "<m i='234234' c='take $,put $ 12348'/>" tags surrounding every item.
-  span.find('m').each(function () {
+  const mElements = span.querySelectorAll('m');
+  mElements.forEach(function (element) {
     // Populate menu node for each item based on the 'c' and 'l' attributes containing command lists.
     // Mark menu nodes so that they can be removed and not mess up the triggers.
-    var id = $(this).attr('i');
-    var menu = $('<span class="dropdown-menu no-triggers" />');
+    var id = element.getAttribute('i');
+    var menu = document.createElement('span');
+    menu.className = 'dropdown-menu no-triggers';
 
     function addToMenu(cmd) {
       if (cmd.trim().length === 0) return;
       var action = cmd.replace(/\$/, id);
       // Menu entry visible to the user will only contain a meaningful word, without IDs or $ placeholders.
       var label = cmd.replace(/( *\$ *| *[0-9]{5,}|\.'.*')/g, '');
-      menu.append(
-        $('<a/>')
-          .addClass('dropdown-item')
-          .addClass('manip-item')
-          .attr('data-action', action)
-          .attr('href', '#')
-          .append(label)
-      );
+      
+      var menuItem = document.createElement('a');
+      menuItem.className = 'dropdown-item manip-item';
+      menuItem.setAttribute('data-action', action);
+      menuItem.setAttribute('data-echo', action);
+      menuItem.setAttribute('href', '#');
+      menuItem.textContent = label;
+      
+      menu.appendChild(menuItem);
     }
 
     // Main commands above the divider.
-    if (this.hasAttribute('c'))
-      $(this)
-        .attr('c')
+    if (element.hasAttribute('c')) {
+      element.getAttribute('c')
         .split(',')
-        .map(function (cmd) {
+        .forEach(function (cmd) {
           addToMenu(cmd);
-          return cmd;
         });
+    }
 
     // Commands only available in this room, below the divider.
-    if (this.hasAttribute('l')) {
-      var divider = $('<div/>').addClass('dropdown-divider');
-      menu.append(divider);
-      $(this)
-        .attr('l')
+    if (element.hasAttribute('l')) {
+      var divider = document.createElement('div');
+      divider.className = 'dropdown-divider';
+      menu.appendChild(divider);
+      
+      element.getAttribute('l')
         .split(',')
-        .map(function (cmd) {
+        .forEach(function (cmd) {
           addToMenu(cmd);
-          return cmd;
         });
     }
 
     // Create drop-down toggle from item description text.
-    var toggle = $(
-      '<span class="dropdown-toggle" data-bs-toggle="dropdown"/>'
-    ).append($(this).contents());
+    var toggle = document.createElement('span');
+    toggle.className = 'dropdown-toggle';
+    toggle.setAttribute('data-bs-toggle', 'dropdown');
+    // Move all child nodes from the original element to the toggle
+    while (element.firstChild) {
+      toggle.appendChild(element.firstChild);
+    }
 
     // Replace '<m>' pseudo-tag with Popper dropdown markup.
-    $(this).replaceWith(function () {
-      var result = $('<span class="dropdown-norelative"/>')
-        .append(toggle)
-        .append(menu);
-      
-      // Initialize Bootstrap 5 dropdown programmatically
-      setTimeout(() => {
-        if (window.bootstrap && window.bootstrap.Dropdown) {
-          const dropdownToggleEl = result.find('.dropdown-toggle')[0];
-          if (dropdownToggleEl) {
-            new window.bootstrap.Dropdown(dropdownToggleEl);
-          }
+    var result = document.createElement('span');
+    result.className = 'dropdown-norelative';
+    result.appendChild(toggle);
+    result.appendChild(menu);
+    
+    // Initialize Bootstrap 5 dropdown programmatically
+    setTimeout(() => {
+      if (window.bootstrap && window.bootstrap.Dropdown) {
+        const dropdownToggleEl = result.querySelector('.dropdown-toggle');
+        if (dropdownToggleEl) {
+          new window.bootstrap.Dropdown(dropdownToggleEl);
         }
-      }, 0);
-      
-      return result;
-    });
+      }
+    }, 0);
+    
+    element.parentNode.replaceChild(result, element);
   });
 }
 

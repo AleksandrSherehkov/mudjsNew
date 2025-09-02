@@ -1,23 +1,25 @@
-import $ from 'jquery';
+import { onDocumentReady, on, trigger, createElement } from './utils/domUtils.js';
 import { send } from './websock.js';
 
 function echo(txt) {
   if (!txt) return;
 
   if (txt.length !== 0) {
-    const output = $('<div/>')
-      .addClass('echo-with-anchor')
-      .attr('aria-hidden', 'true')
-      .text(txt + '\n');
+    const output = createElement('div', {
+      class: 'echo-with-anchor',
+      'aria-hidden': 'true',
+      text: txt + '\n'
+    });
 
-    $('.terminal').trigger('output-html', [output[0].outerHTML]);
+    trigger('.terminal', 'output-html', [output.outerHTML]);
   } else {
-    $('.terminal').trigger('output', '\n');
+    trigger('.terminal', 'output', '\n');
   }
 }
 
-$(document).ready(function () {
-  $('#triggers').on('input', function (e, text) {
+onDocumentReady(function () {
+  on('#triggers', 'input', function (e) {
+    const text = e.detail[0];
     send(text);
   });
 });

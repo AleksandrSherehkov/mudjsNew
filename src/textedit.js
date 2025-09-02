@@ -137,7 +137,11 @@ $(document).ready(() => {
 
     $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
       monacoEditor.setValue(text || '');
-      $('#textedit-modal').modal('show');
+      
+      // Use Bootstrap 5 native Modal API instead of jQuery
+      const modalElement = document.getElementById('textedit-modal');
+      const modal = new window.bootstrap.Modal(modalElement);
+      modal.show();
 
       if (arg === 'help') {
         $('#textedit-modal input').show();
@@ -158,7 +162,7 @@ $(document).ready(() => {
         .off()
         .click(e => {
           e.preventDefault();
-          $('#textedit-modal').modal('hide');
+          modal.hide();
         });
     });
   });

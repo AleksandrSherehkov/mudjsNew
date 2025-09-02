@@ -1,4 +1,5 @@
 import $ from 'jquery';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'; // Bootstrap 5 JS
 import PropertiesStorage from './properties';
 import { connect } from './websock';
 import lastLocation from './location';

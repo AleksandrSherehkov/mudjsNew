@@ -1,4 +1,3 @@
-import $ from 'jquery';
 import loader from '@monaco-editor/loader';
 import 'devbridge-autocomplete';
 import { rpccmd } from './websock';
@@ -40,30 +39,37 @@ function getResponsiveEditorParams() {
 }
 
 function initHelpIds() {
-  const heditLookup = $('#textedit-modal input');
+  const heditLookup = document.querySelector('#textedit-modal input');
 
-  $.get(
-    'hedit.json',
-    function (data) {
-      const topics = $.map(data, item => ({
+  fetch('hedit.json')
+    .then(response => response.json())
+    .then(data => {
+      const topics = data.map(item => ({
         value: `${item.id}: ${item.kw.toLowerCase()}`,
         data: item.id,
       }));
 
-      heditLookup.autocomplete({
-        lookup: topics,
-        lookupLimit: 20,
-        autoSelectFirst: true,
-        showNoSuggestionNotice: true,
-        noSuggestionNotice: 'Справка не найдена',
-        onSelect: () => $('#textedit-modal .editor').focus(),
-      });
-    },
-    'json'
-  ).fail(() => {
-    console.log('Cannot retrieve help ids.');
-    $('#textedit-modal input').hide();
-  });
+      // Using devbridge-autocomplete with jQuery-like interface for autocomplete
+      // Note: This library may still need jQuery under the hood
+      if (heditLookup && window.jQuery) {
+        window.jQuery(heditLookup).autocomplete({
+          lookup: topics,
+          lookupLimit: 20,
+          autoSelectFirst: true,
+          showNoSuggestionNotice: true,
+          noSuggestionNotice: 'Справка не найдена',
+          onSelect: () => {
+            const editor = document.querySelector('#textedit-modal .editor');
+            if (editor) editor.focus();
+          },
+        });
+      }
+    })
+    .catch(() => {
+      console.log('Cannot retrieve help ids.');
+      const input = document.querySelector('#textedit-modal input');
+      if (input) input.style.display = 'none';
+    });
 }
 
 function initVoiceRecognition(monaco) {
@@ -82,9 +88,9 @@ function initVoiceRecognition(monaco) {
   });
 }
 
-$(document).ready(() => {
+document.addEventListener('DOMContentLoaded', () => {
   loader.init().then(monaco => {
-    const editorElement = $('#textedit-modal .editor')[0];
+    const editorElement = document.querySelector('#textedit-modal .editor');
     const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
 
     monacoEditor = monaco.editor.create(editorElement, {
@@ -135,35 +141,45 @@ $(document).ready(() => {
       }
     });
 
-    $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
-      monacoEditor.setValue(text || '');
-      
-      // Use Bootstrap 5 native Modal API instead of jQuery
-      const modalElement = document.getElementById('textedit-modal');
-      const modal = new window.bootstrap.Modal(modalElement);
-      modal.show();
+    const rpcEvents = document.getElementById('rpc-events');
+    if (rpcEvents) {
+      rpcEvents.addEventListener('rpc-editor_open', (e) => {
+        const [text, arg] = e.detail;
+        monacoEditor.setValue(text || '');
+        
+        // Use Bootstrap 5 native Modal API instead of jQuery
+        const modalElement = document.getElementById('textedit-modal');
+        const modal = new window.bootstrap.Modal(modalElement);
+        modal.show();
 
-      if (arg === 'help') {
-        $('#textedit-modal input').show();
-        initHelpIds();
-      } else {
-        $('#textedit-modal input').hide();
-      }
+        const input = document.querySelector('#textedit-modal input');
+        if (arg === 'help') {
+          if (input) input.style.display = 'block';
+          initHelpIds();
+        } else {
+          if (input) input.style.display = 'none';
+        }
 
-      $('#textedit-modal .save-button')
-        .off()
-        .click(e => {
+        const saveButton = document.querySelector('#textedit-modal .save-button');
+        const cancelButton = document.querySelector('#textedit-modal .cancel-button');
+
+        // Remove previous event listeners by cloning and replacing elements
+        const newSaveButton = saveButton.cloneNode(true);
+        const newCancelButton = cancelButton.cloneNode(true);
+        saveButton.parentNode.replaceChild(newSaveButton, saveButton);
+        cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
+
+        newSaveButton.addEventListener('click', (e) => {
           e.preventDefault();
           const val = monacoEditor.getValue();
           rpccmd('editor_save', val);
         });
 
-      $('#textedit-modal .cancel-button')
-        .off()
-        .click(e => {
+        newCancelButton.addEventListener('click', (e) => {
           e.preventDefault();
           modal.hide();
         });
-    });
+      });
+    }
   });
 });

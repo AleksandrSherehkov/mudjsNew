@@ -12,19 +12,160 @@ export function onDocumentReady(callback) {
 }
 
 /**
- * Query selector replacement for $()
+ * Query selector replacement for $() that returns a jQuery-like object
  */
 export function $(selector) {
-  if (typeof selector === 'string') {
-    return document.querySelector(selector);
-  } else if (selector instanceof Element) {
-    return selector;
-  } else if (typeof selector === 'function') {
+  if (typeof selector === 'function') {
     // Handle $(function() {}) pattern
     onDocumentReady(selector);
     return null;
   }
-  return null;
+  
+  const elements = typeof selector === 'string' 
+    ? document.querySelectorAll(selector)
+    : (selector instanceof Element ? [selector] : []);
+  
+  // Return a jQuery-like object with chainable methods
+  return {
+    elements: Array.from(elements),
+    
+    on(event, handler) {
+      this.elements.forEach(el => {
+        el.addEventListener(event, handler);
+      });
+      return this;
+    },
+    
+    off(event, handler) {
+      this.elements.forEach(el => {
+        el.removeEventListener(event, handler);
+      });
+      return this;
+    },
+    
+    trigger(eventName, detail) {
+      this.elements.forEach(el => {
+        const event = new CustomEvent(eventName, { detail, bubbles: true });
+        el.dispatchEvent(event);
+      });
+      return this;
+    },
+    
+    val(value) {
+      if (value === undefined) {
+        return this.elements[0] ? this.elements[0].value : undefined;
+      } else {
+        this.elements.forEach(el => {
+          el.value = value;
+        });
+        return this;
+      }
+    },
+    
+    addClass(className) {
+      this.elements.forEach(el => {
+        el.classList.add(className);
+      });
+      return this;
+    },
+    
+    removeClass(className) {
+      this.elements.forEach(el => {
+        el.classList.remove(className);
+      });
+      return this;
+    },
+    
+    attr(name, value) {
+      if (value === undefined) {
+        return this.elements[0] ? this.elements[0].getAttribute(name) : undefined;
+      } else {
+        this.elements.forEach(el => {
+          el.setAttribute(name, value);
+        });
+        return this;
+      }
+    },
+    
+    html(content) {
+      if (content === undefined) {
+        return this.elements[0] ? this.elements[0].innerHTML : undefined;
+      } else {
+        this.elements.forEach(el => {
+          el.innerHTML = content;
+        });
+        return this;
+      }
+    },
+    
+    text(content) {
+      if (content === undefined) {
+        return this.elements[0] ? this.elements[0].textContent : undefined;
+      } else {
+        this.elements.forEach(el => {
+          el.textContent = content;
+        });
+        return this;
+      }
+    },
+    
+    css(property, value) {
+      if (typeof property === 'object') {
+        this.elements.forEach(el => {
+          Object.keys(property).forEach(key => {
+            el.style[key] = property[key];
+          });
+        });
+      } else if (value === undefined) {
+        return this.elements[0] ? getComputedStyle(this.elements[0])[property] : undefined;
+      } else {
+        this.elements.forEach(el => {
+          el.style[property] = value;
+        });
+      }
+      return this;
+    },
+    
+    show() {
+      this.elements.forEach(el => {
+        el.style.display = '';
+      });
+      return this;
+    },
+    
+    hide() {
+      this.elements.forEach(el => {
+        el.style.display = 'none';
+      });
+      return this;
+    },
+    
+    focus() {
+      if (this.elements[0] && typeof this.elements[0].focus === 'function') {
+        this.elements[0].focus();
+      }
+      return this;
+    },
+    
+    get length() {
+      return this.elements.length;
+    },
+    
+    get(index) {
+      return this.elements[index];
+    },
+    
+    first() {
+      return this.elements[0];
+    },
+    
+    each(callback) {
+      this.elements.forEach((element, index) => {
+        callback.call(element, index, element);
+      });
+      return this;
+    }
+  };
 }
 
 /**
@@ -188,7 +329,7 @@ export function append(parent, child) {
  */
 export function find(parent, selector) {
   const parentElement = typeof parent === 'string' ? document.querySelector(parent) : parent;
-  return parentElement ? Array.from(parentElement.querySelectorAll(selector)) : [];
+  return (parentElement && parentElement.querySelectorAll) ? Array.from(parentElement.querySelectorAll(selector)) : [];
 }
 
 /**

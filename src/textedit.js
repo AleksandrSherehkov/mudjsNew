@@ -85,6 +85,13 @@ function initVoiceRecognition(monaco) {
 $(document).ready(() => {
   loader.init().then(monaco => {
     const editorElement = $('#textedit-modal .editor')[0];
+    
+    // Check if the editor element exists before creating Monaco editor
+    if (!editorElement) {
+      console.error('Monaco editor container element not found. Selector: #textedit-modal .editor');
+      return; // Exit early if element doesn't exist
+    }
+    
     const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
 
     monacoEditor = monaco.editor.create(editorElement, {
@@ -112,58 +119,63 @@ $(document).ready(() => {
       renderLineHighlight: 'none',
     });
 
-    initVoiceRecognition(monacoEditor);
-
-    // 🔄 Перезапуск речи при смене языка
-    document.querySelector('#voice-lang').addEventListener('change', () => {
+    // Only set up event handlers if Monaco editor was created successfully
+    if (monacoEditor) {
       initVoiceRecognition(monacoEditor);
-    });
 
-    monacoEditor.onDidChangeModelContent(() => {
-      const model = monacoEditor.getModel();
-      const pos = monacoEditor.getPosition();
-      const line = model.getLineContent(pos.lineNumber);
-      if (line.length === 80) {
-        ariaAnnouncer.textContent = `Вы достигли 80 символов на строке ${pos.lineNumber}.`;
-      }
-    });
+      // 🔄 Перезапуск речи при смене языка
+      document.querySelector('#voice-lang').addEventListener('change', () => {
+        initVoiceRecognition(monacoEditor);
+      });
 
-    window.addEventListener('resize', () => {
-      if (monacoEditor) {
-        const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
-        monacoEditor.updateOptions({ fontSize, lineHeight, padding });
-      }
-    });
+      monacoEditor.onDidChangeModelContent(() => {
+        const model = monacoEditor.getModel();
+        const pos = monacoEditor.getPosition();
+        const line = model.getLineContent(pos.lineNumber);
+        if (line.length === 80) {
+          ariaAnnouncer.textContent = `Вы достигли 80 символов на строке ${pos.lineNumber}.`;
+        }
+      });
 
-    $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
-      monacoEditor.setValue(text || '');
-      
-      // Use Bootstrap 5 native Modal API instead of jQuery
-      const modalElement = document.getElementById('textedit-modal');
-      const modal = new window.bootstrap.Modal(modalElement);
-      modal.show();
+      window.addEventListener('resize', () => {
+        if (monacoEditor) {
+          const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
+          monacoEditor.updateOptions({ fontSize, lineHeight, padding });
+        }
+      });
 
-      if (arg === 'help') {
-        $('#textedit-modal input').show();
-        initHelpIds();
-      } else {
-        $('#textedit-modal input').hide();
-      }
+      $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
+        if (monacoEditor) {
+          monacoEditor.setValue(text || '');
+        }
+        
+        // Use Bootstrap 5 native Modal API instead of jQuery
+        const modalElement = document.getElementById('textedit-modal');
+        const modal = new window.bootstrap.Modal(modalElement);
+        modal.show();
 
-      $('#textedit-modal .save-button')
-        .off()
-        .click(e => {
-          e.preventDefault();
-          const val = monacoEditor.getValue();
-          rpccmd('editor_save', val);
-        });
+        if (arg === 'help') {
+          $('#textedit-modal input').show();
+          initHelpIds();
+        } else {
+          $('#textedit-modal input').hide();
+        }
 
-      $('#textedit-modal .cancel-button')
-        .off()
-        .click(e => {
-          e.preventDefault();
-          modal.hide();
-        });
-    });
+        $('#textedit-modal .save-button')
+          .off()
+          .click(e => {
+            e.preventDefault();
+            const val = monacoEditor ? monacoEditor.getValue() : '';
+            rpccmd('editor_save', val);
+          });
+
+        $('#textedit-modal .cancel-button')
+          .off()
+          .click(e => {
+            e.preventDefault();
+            modal.hide();
+          });
+      });
+    }
   });
 });

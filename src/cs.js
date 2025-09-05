@@ -1,4 +1,4 @@
-import $ from 'jquery';
+import $ from './jquery-shim.js';
 import loader from '@monaco-editor/loader';
 import { rpccmd } from './websock.js';
 

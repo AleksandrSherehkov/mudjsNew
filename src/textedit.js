@@ -234,35 +234,37 @@ $(document).ready(() => {
           
           // Use Bootstrap 5 native Modal API instead of jQuery
           const modalElement = document.getElementById('textedit-modal');
-          const modal = new window.bootstrap.Modal(modalElement);
-          modal.show();
+          if (modalElement) {
+            const modal = new window.bootstrap.Modal(modalElement);
+            modal.show();
 
-          if (arg === 'help') {
-            $('#textedit-modal input').show();
-            initHelpIds();
-          } else {
-            $('#textedit-modal input').hide();
+            if (arg === 'help') {
+              $('#textedit-modal input').show();
+              initHelpIds();
+            } else {
+              $('#textedit-modal input').hide();
+            }
+
+            $('#textedit-modal .save-button')
+              .off()
+              .click(e => {
+                e.preventDefault();
+                const val = monacoEditor ? monacoEditor.getValue() : '';
+                rpccmd('editor_save', val);
+              });
+
+            $('#textedit-modal .cancel-button')
+              .off()
+              .click(e => {
+                e.preventDefault();
+                modal.hide();
+              });
           }
-
-          $('#textedit-modal .save-button')
-            .off()
-            .click(e => {
-              e.preventDefault();
-              const val = monacoEditor ? monacoEditor.getValue() : '';
-              rpccmd('editor_save', val);
-            });
-
-          $('#textedit-modal .cancel-button')
-            .off()
-            .click(e => {
-              e.preventDefault();
-              modal.hide();
-            });
         });
       }
     } catch (error) {
-      console.error('Monaco editor container element not found. Selector: #textedit-modal .editor', error);
-      return; // Exit early if element doesn't exist
+      console.warn('Monaco editor container element not found initially. Selector: #textedit-modal .editor. Will try to initialize on demand.', error);
+      // Don't return here - continue with event handler setup
     }
   });
 });

@@ -118,6 +118,13 @@ $(document).ready(function () {
 
     // 👇 Установка редактора с языком "fenia"
     const editorElement = $('#cs-modal .editor')[0];
+    
+    // Check if the editor element exists before creating Monaco editor
+    if (!editorElement) {
+      console.error('Monaco editor container element not found. Selector: #cs-modal .editor');
+      return; // Exit early if element doesn't exist
+    }
+    
     monacoEditor = monaco.editor.create(editorElement, {
       value: '',
       language: 'fenia',
@@ -135,12 +142,15 @@ $(document).ready(function () {
       formatOnType: true,
     });
 
-    monacoEditor.onDidChangeModelContent(() => {
-      if (currentFile && openFiles[currentFile]) {
-        openFiles[currentFile].saved = false;
-        markTabAsUnsaved(currentFile);
-      }
-    });
+    // Only set up event handlers if Monaco editor was created successfully
+    if (monacoEditor) {
+      monacoEditor.onDidChangeModelContent(() => {
+        if (currentFile && openFiles[currentFile]) {
+          openFiles[currentFile].saved = false;
+          markTabAsUnsaved(currentFile);
+        }
+      });
+    }
 
     $('#editor-tabs').on('click', '.nav-link', function (e) {
       e.preventDefault();
@@ -151,12 +161,12 @@ $(document).ready(function () {
     $('#cs-modal .run-button').click(function (e) {
       e.preventDefault();
       const subj = $('#cs-subject').val();
-      if (currentFile) {
+      if (currentFile && monacoEditor) {
         openFiles[currentFile].value = monacoEditor.getValue();
         openFiles[currentFile].saved = true;
         markTabAsSaved(currentFile);
       }
-      const body = fixindent(tabsize4to8, monacoEditor.getValue());
+      const body = monacoEditor ? fixindent(tabsize4to8, monacoEditor.getValue()) : '';
       rpccmd('cs_eval', subj, body);
     });
 
@@ -190,7 +200,9 @@ $('#editor-tabs').on('click', '.tab-close', function (e) {
     if (firstRemaining) {
       switchToFile(firstRemaining);
     } else {
-      monacoEditor.setValue('');
+      if (monacoEditor) {
+        monacoEditor.setValue('');
+      }
       currentFile = null;
       $('#cs-subject').val('');
     }
@@ -213,7 +225,7 @@ function openFileTab(filename, content) {
 }
 
 function autoSaveCurrentFile() {
-  if (currentFile && openFiles[currentFile]) {
+  if (currentFile && openFiles[currentFile] && monacoEditor) {
     openFiles[currentFile].value = monacoEditor.getValue();
     openFiles[currentFile].saved = true;
     markTabAsSaved(currentFile);
@@ -228,7 +240,9 @@ function switchToFile(filename) {
   $('#editor-tabs .nav-link').removeClass('active');
   $(`#editor-tabs .nav-link[data-filename="${filename}"]`).addClass('active');
 
-  monacoEditor.setValue(openFiles[filename].value);
+  if (monacoEditor) {
+    monacoEditor.setValue(openFiles[filename].value);
+  }
   $('#cs-subject').val(filename);
 }
 

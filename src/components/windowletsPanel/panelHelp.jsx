@@ -1,10 +1,12 @@
-import $ from 'jquery';
 import React, { useState, useEffect, useRef } from 'react';
 
 import { send } from '../../websock';
 
 const echo = txt => {
-  $('.terminal').trigger('output', [txt]);
+  const terminal = document.querySelector('.terminal');
+  if (terminal) {
+    terminal.dispatchEvent(new CustomEvent('output', { detail: txt }));
+  }
 };
 
 const useTypeahead = () => {
@@ -15,13 +17,19 @@ const useTypeahead = () => {
   });
 
   useEffect(() => {
-    $.get('/help/typeahead.json', undefined, 'json')
+    fetch('/help/typeahead.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => {
         // Success:
         console.log('Retrieved', data.length, 'help topics.');
 
         // Convert retrieved JSON to format accepted by autocomplete plugin.
-        const topics = $.map(data, dataItem => ({
+        const topics = data.map(dataItem => ({
           value: dataItem.n.toLowerCase(),
           data: { link: dataItem.l, title: dataItem.t, id: dataItem.id },
         }));

@@ -12,13 +12,42 @@ const $ = (selector) => {
     return;
   }
 
+  // Handle $(document) specifically
+  if (selector === document) {
+    return {
+      ready: (callback) => {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', callback);
+        } else {
+          callback();
+        }
+      },
+      on: (event, handler) => document.addEventListener(event, handler),
+      off: (event, handler) => document.removeEventListener(event, handler),
+      trigger: (event, data) => document.dispatchEvent(new CustomEvent(event, { detail: data }))
+    };
+  }
+
   if (typeof selector === 'string') {
     const element = document.querySelector(selector);
     if (!element) return null;
 
     return {
-      // Basic DOM manipulation
-      on: (event, handler) => element.addEventListener(event, handler),
+      // Basic DOM manipulation with event delegation support
+      on: (event, selectorOrHandler, handler) => {
+        if (typeof selectorOrHandler === 'function') {
+          // Simple event binding: .on('click', handler)
+          element.addEventListener(event, selectorOrHandler);
+        } else {
+          // Event delegation: .on('click', '.selector', handler)
+          const delegatedHandler = (e) => {
+            if (e.target.matches(selectorOrHandler) || e.target.closest(selectorOrHandler)) {
+              handler.call(e.target.closest(selectorOrHandler) || e.target, e);
+            }
+          };
+          element.addEventListener(event, delegatedHandler);
+        }
+      },
       off: (event, handler) => element.removeEventListener(event, handler),
       trigger: (event, data) => element.dispatchEvent(new CustomEvent(event, { detail: data })),
       val: () => element.value,
@@ -34,7 +63,19 @@ const $ = (selector) => {
       },
       hide: () => { element.style.display = 'none'; return this; },
       show: () => { element.style.display = ''; return this; },
-      focus: () => { element.focus(); return this; }
+      focus: () => { element.focus(); return this; },
+      data: (key, value) => {
+        if (value !== undefined) {
+          element.setAttribute('data-' + key, value);
+          return this;
+        }
+        return element.getAttribute('data-' + key);
+      },
+      closest: (selector) => {
+        const closest = element.closest(selector);
+        return closest ? $(closest) : null;
+      },
+      remove: () => { element.remove(); return this; }
     };
   }
 

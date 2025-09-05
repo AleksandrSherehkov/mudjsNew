@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import $ from '../../jquery-shim.js';
+import 'devbridge-autocomplete';
 
 import { send } from '../../websock';
 

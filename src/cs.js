@@ -138,39 +138,7 @@ $(document).ready(function () {
       },
     });
 
-    try {
-      // Wait for the modal element to be available in the DOM
-      const editorElement = await waitForElement('#cs-modal .editor');
-      
-      console.log('Monaco editor container found for cs-modal');
-      
-      monacoEditor = monaco.editor.create(editorElement, {
-      value: '',
-      language: 'fenia',
-      theme: 'vs-dark',
-      fontSize: 16,
-      lineNumbers: 'off',
-      wordWrap: 'on',
-      minimap: { enabled: false },
-      automaticLayout: true,
-      scrollBeyondLastLine: false,
-      padding: { top: 20, bottom: 20 },
-      tabSize: 4,
-      insertSpaces: false,
-      detectIndentation: false,
-      formatOnType: true,
-    });
-
-    // Only set up event handlers if Monaco editor was created successfully
-    if (monacoEditor) {
-      monacoEditor.onDidChangeModelContent(() => {
-        if (currentFile && openFiles[currentFile]) {
-          openFiles[currentFile].saved = false;
-          markTabAsUnsaved(currentFile);
-        }
-      });
-    }
-
+    // Set up event handlers that don't depend on Monaco editor first
     $('#editor-tabs').on('click', '.nav-link', function (e) {
       e.preventDefault();
       const filename = $(this).data('filename');
@@ -201,7 +169,7 @@ $(document).ready(function () {
       if (!monacoEditor) {
         try {
           const editorElement = await waitForElement('#cs-modal .editor', 10, 100);
-          console.log('Reinitializing Monaco editor for cs-modal');
+          console.log('Initializing Monaco editor for cs-modal on demand');
           
           monacoEditor = monaco.editor.create(editorElement, {
             value: '',
@@ -230,7 +198,7 @@ $(document).ready(function () {
             });
           }
         } catch (error) {
-          console.warn('Failed to reinitialize Monaco editor on modal open:', error);
+          console.warn('Failed to initialize Monaco editor on modal open:', error);
         }
       }
       
@@ -239,12 +207,47 @@ $(document).ready(function () {
       
       // Use Bootstrap 5 native Modal API instead of jQuery
       const modalElement = document.getElementById('cs-modal');
-      const modal = new window.bootstrap.Modal(modalElement);
-      modal.show();
+      if (modalElement) {
+        const modal = new window.bootstrap.Modal(modalElement);
+        modal.show();
+      }
     });
+
+    // Try to initialize Monaco editor if the container is available
+    try {
+      const editorElement = await waitForElement('#cs-modal .editor');
+      
+      console.log('Monaco editor container found for cs-modal');
+      
+      monacoEditor = monaco.editor.create(editorElement, {
+        value: '',
+        language: 'fenia',
+        theme: 'vs-dark',
+        fontSize: 16,
+        lineNumbers: 'off',
+        wordWrap: 'on',
+        minimap: { enabled: false },
+        automaticLayout: true,
+        scrollBeyondLastLine: false,
+        padding: { top: 20, bottom: 20 },
+        tabSize: 4,
+        insertSpaces: false,
+        detectIndentation: false,
+        formatOnType: true,
+      });
+
+      // Only set up Monaco-specific event handlers if editor was created successfully
+      if (monacoEditor) {
+        monacoEditor.onDidChangeModelContent(() => {
+          if (currentFile && openFiles[currentFile]) {
+            openFiles[currentFile].saved = false;
+            markTabAsUnsaved(currentFile);
+          }
+        });
+      }
     } catch (error) {
-      console.error('Monaco editor container element not found. Selector: #cs-modal .editor', error);
-      return; // Exit early if element doesn't exist
+      console.warn('Monaco editor container element not found initially. Selector: #cs-modal .editor. Will try to initialize on demand.', error);
+      // Don't return here - continue with event handler setup
     }
   });
 });

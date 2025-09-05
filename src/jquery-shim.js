@@ -29,6 +29,15 @@ const $ = (selector) => {
     };
   }
 
+  // Handle $(window) specifically
+  if (selector === window) {
+    return {
+      on: (event, handler) => window.addEventListener(event, handler),
+      off: (event, handler) => window.removeEventListener(event, handler),
+      trigger: (event, data) => window.dispatchEvent(new CustomEvent(event, { detail: data }))
+    };
+  }
+
   // Handle DOM elements directly
   if (selector && selector.nodeType) {
     const element = selector;

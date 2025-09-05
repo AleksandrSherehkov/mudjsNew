@@ -24,8 +24,30 @@ let monacoEditor;
 let openFiles = {}; // { filename: { value: 'code', saved: true } }
 let currentFile = null;
 
+// Helper function to wait for DOM element to be available
+function waitForElement(selector, maxAttempts = 50, delay = 100) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    
+    function checkElement() {
+      attempts++;
+      const element = document.querySelector(selector);
+      
+      if (element) {
+        resolve(element);
+      } else if (attempts >= maxAttempts) {
+        reject(new Error(`Element ${selector} not found after ${maxAttempts} attempts`));
+      } else {
+        setTimeout(checkElement, delay);
+      }
+    }
+    
+    checkElement();
+  });
+}
+
 $(document).ready(function () {
-  loader.init().then(monaco => {
+  loader.init().then(async monaco => {
     // 🧠 Регистрация языка "fenia"
     monaco.languages.register({ id: 'fenia' });
 
@@ -116,16 +138,13 @@ $(document).ready(function () {
       },
     });
 
-    // 👇 Установка редактора с языком "fenia"
-    const editorElement = $('#cs-modal .editor')[0];
-    
-    // Check if the editor element exists before creating Monaco editor
-    if (!editorElement) {
-      console.error('Monaco editor container element not found. Selector: #cs-modal .editor');
-      return; // Exit early if element doesn't exist
-    }
-    
-    monacoEditor = monaco.editor.create(editorElement, {
+    try {
+      // Wait for the modal element to be available in the DOM
+      const editorElement = await waitForElement('#cs-modal .editor');
+      
+      console.log('Monaco editor container found for cs-modal');
+      
+      monacoEditor = monaco.editor.create(editorElement, {
       value: '',
       language: 'fenia',
       theme: 'vs-dark',
@@ -177,7 +196,44 @@ $(document).ready(function () {
       }
     });
 
-    $('#rpc-events').on('rpc-cs_edit', function (e, subj, body) {
+    $('#rpc-events').on('rpc-cs_edit', async function (e, subj, body) {
+      // If Monaco editor wasn't initialized yet, try to initialize it now
+      if (!monacoEditor) {
+        try {
+          const editorElement = await waitForElement('#cs-modal .editor', 10, 100);
+          console.log('Reinitializing Monaco editor for cs-modal');
+          
+          monacoEditor = monaco.editor.create(editorElement, {
+            value: '',
+            language: 'fenia',
+            theme: 'vs-dark',
+            fontSize: 16,
+            lineNumbers: 'off',
+            wordWrap: 'on',
+            minimap: { enabled: false },
+            automaticLayout: true,
+            scrollBeyondLastLine: false,
+            padding: { top: 20, bottom: 20 },
+            tabSize: 4,
+            insertSpaces: false,
+            detectIndentation: false,
+            formatOnType: true,
+          });
+
+          // Set up event handlers for the newly created editor
+          if (monacoEditor) {
+            monacoEditor.onDidChangeModelContent(() => {
+              if (currentFile && openFiles[currentFile]) {
+                openFiles[currentFile].saved = false;
+                markTabAsUnsaved(currentFile);
+              }
+            });
+          }
+        } catch (error) {
+          console.warn('Failed to reinitialize Monaco editor on modal open:', error);
+        }
+      }
+      
       if (subj) $('#cs-subject').val(subj);
       if (body) openFileTab(subj || 'file.fenia', fixindent(tabsize8to4, body));
       
@@ -186,6 +242,10 @@ $(document).ready(function () {
       const modal = new window.bootstrap.Modal(modalElement);
       modal.show();
     });
+    } catch (error) {
+      console.error('Monaco editor container element not found. Selector: #cs-modal .editor', error);
+      return; // Exit early if element doesn't exist
+    }
   });
 });
 

@@ -8,13 +8,15 @@
  * Триггера - автоматические действия как реакция на какую-то строку в мире.
  *-------------------------------------------------------------------------*/
 $('.trigger').on('text', function(e, text) {
-    if (text.match('ВЫБИЛ.? у тебя оружие, и оно упало на землю!$')) {
+    // Handle both jQuery-style events (text parameter) and native CustomEvents (e.detail)
+    const eventText = text || e.detail;
+    if (eventText && eventText.match && eventText.match('ВЫБИЛ.? у тебя оружие, и оно упало на землю!$')) {
 //        echo('>>> Подбираю оружие с пола, очистив буфер команд.\n');
 //        send('\\');
 //        send('взять ' + weapon + '|надеть ' + weapon);
     }
 
-    if (text.match('^Ты умираешь от голода|^Ты умираешь от жажды')) {
+    if (eventText && eventText.match && eventText.match('^Ты умираешь от голода|^Ты умираешь от жажды')) {
         if (mudprompt.p2.pos === 'stand' || mudprompt.p2.pos === 'sit' || mudprompt.p2.pos === 'rest') {
 //        echo('>>> Правильно питаюсь, когда не сплю и не сражаюсь.\n');
 //        send('взять бочон сумка');
@@ -23,20 +25,21 @@ $('.trigger').on('text', function(e, text) {
         }
     }
 
-    if (text.match('Обессилев, ты падаешь лицом вниз!')) {
+    if (eventText && eventText.match && eventText.match('Обессилев, ты падаешь лицом вниз!')) {
 //        echo('>>> ЕЩЕ РАЗОК!!!\n');
 //        send('встать|выбить ' + doorToBash);
     }
 
     if (
-        (text.match('^\\[ic\\] ') ||
-        text.match('^\\[ooc\\] ') ||
-        text.match(' говорит тебе \'.*\'$') ||
-        text.match(' произносит \'.*\'$'))
-        && !text.match('^Стражник|^Охранник'))
+        eventText && eventText.match && (
+        eventText.match('^\\[ic\\] ') ||
+        eventText.match('^\\[ooc\\] ') ||
+        eventText.match(' говорит тебе \'.*\'$') ||
+        eventText.match(' произносит \'.*\'$'))
+        && !eventText.match('^Стражник|^Охранник'))
     {
         // Всплывающие оповещения для важных сообщений.
-        notify(text);
+        notify(eventText);
     }
 });
 
@@ -70,34 +73,38 @@ function command(e, cmd, text, handler) {
 
 // Примеры алиасов.
 $('.trigger').on('input', function(e, text) {
+    // Handle both jQuery-style events (text parameter) and native CustomEvents (e.detail)
+    const eventText = text || e.detail;
+    if (!eventText) return;
+    
     // Установить жертву для выстрелов, например: /victim хассан
-    command(e, '/victim', text, function(args) {
+    command(e, '/victim', eventText, function(args) {
         victim = args[1];
         echo('>>> Твоя мишень теперь ' + victim + "\n");
     });
     
     // Установить оружие (см. тригер выше), например: /weapon меч
-    command(e, '/weapon', text, function(args) {
+    command(e, '/weapon', eventText, function(args) {
         weapon = args[1];
         echo('>>> Твое оружие теперь ' + weapon + "\n");
     });
     
     // Опознать вещь из сумки, например: /iden кольцо
-    command(e, '/iden', text, function(args) {
+    command(e, '/iden', eventText, function(args) {
         send('взять ' + args[1] + ' сумка');
         send('к опознание ' + args[1]);
         send('полож ' + args[1] + ' сумка');
     });
 
     // Выбросить и уничтожить вещь из сумки: /purge барахло
-    command(e, '/purge', text, function(args) {
+    command(e, '/purge', eventText, function(args) {
         send('взять ' + args[1] + ' сумка');
         send('бросить ' + args[1]);
         send('жертвовать ' + args[1]);
     });
    
     // Начать выбивать двери (см. тригер выше): /bd юг
-    command(e, '/bd', text, function(args) {
+    command(e, '/bd', eventText, function(args) {
         doorToBash = args[1];
         echo('>>> Поехали, вышибаем по направлению ' + doorToBash + '\n');
         send('выбить ' + doorToBash);

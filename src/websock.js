@@ -1,4 +1,5 @@
 import { store, onConnected, onDisconnected } from './store.js';
+import $ from 'jquery';
 import Telnet from './telnet';
 
 const PROTO_VERSION = 'DreamLand Web Client/2.1';
@@ -28,32 +29,26 @@ function send(text) {
 }
 
 function process(s) {
-  const terminal = document.querySelector('.terminal');
-  if (terminal) {
-    terminal.dispatchEvent(new CustomEvent('output', { detail: s }));
-  }
+  $('.terminal').trigger('output', [s]);
 }
 
 // attach default RPC handlers
-document.addEventListener('DOMContentLoaded', function () {
+$(document).ready(function () {
   const telnet = new Telnet();
 
   telnet.handleRaw = function (s) {
     process(s);
   };
 
-  const rpcEvents = document.getElementById('rpc-events');
-  if (rpcEvents) {
-    rpcEvents.addEventListener('rpc-console_out', function (e) {
-      telnet.process(e.detail[0]);
-    });
-
-    rpcEvents.addEventListener('rpc-alert', function (e) {
-      alert(e.detail[0]);
-    });
-
-    rpcEvents.addEventListener('rpc-version', function (e) {
-      const [version, nonce] = e.detail;
+  $('#rpc-events')
+    .on('rpc-console_out', function (e, b) {
+      
+      telnet.process(b);
+    })
+    .on('rpc-alert', function (e, b) {
+      alert(b);
+    })
+    .on('rpc-version', function (e, version, nonce) {
       console.log('rpc-version', version, nonce);
 
       if (version !== PROTO_VERSION) {
@@ -70,7 +65,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
       ws.nonce = nonce;
     });
-  }
 });
 
 function connect() {
@@ -84,10 +78,7 @@ function connect() {
     b = decodeURIComponent(escape(b));
     b = JSON.parse(b);
     
-    const rpcEvents = document.getElementById('rpc-events');
-    if (rpcEvents) {
-      rpcEvents.dispatchEvent(new CustomEvent('rpc-' + b.command, { detail: b.args }));
-    }
+    $('#rpc-events').trigger('rpc-' + b.command, b.args);
   };
 
   ws.onopen = function () {

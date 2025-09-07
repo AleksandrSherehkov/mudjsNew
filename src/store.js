@@ -1,3 +1,4 @@
+import $ from 'jquery';
 import { combineReducers, legacy_createStore as createStore } from 'redux';
 
 // Reducer для з'єднання
@@ -36,11 +37,8 @@ const reducer = combineReducers({ connection, prompt });
 const store = createStore(reducer);
 
 // Прив'язуємо івент на зміну промпта
-document.addEventListener('DOMContentLoaded', () => {
-  const rpcEvents = document.getElementById('rpc-events');
-  if (rpcEvents) {
-    rpcEvents.addEventListener('rpc-prompt', (e) => store.dispatch(onNewPrompt(e.detail[0])));
-  }
+$(document).ready(() => {
+  $('#rpc-events').on('rpc-prompt', (e, b) => store.dispatch(onNewPrompt(b)));
 });
 
 export { store, onConnected, onDisconnected };

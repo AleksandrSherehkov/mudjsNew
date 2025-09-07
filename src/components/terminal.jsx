@@ -1,5 +1,6 @@
 import React from 'react';
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import $ from 'jquery';
 
 import historyDb from '../historydb';
 import ansi2html from '../ansi2html';
@@ -33,39 +34,30 @@ const loadChunks = (startId, direction, maxlen) => {
       // direction is backward, we have initial key and no records returned => initial key is the first one in the database
       if (startId && direction && chunks.length === 0) firstChunkId = startId;
 
-      return chunks.map(({ id, value }) => {
-        const div = document.createElement('div');
-        div.innerHTML = value;
-        div.setAttribute('data-chunk-id', id);
-        return div;
-      });
+      return chunks.map(({ id, value }) =>
+        $('<div>').append(value).attr('data-chunk-id', id)
+      );
     });
 };
 
-function terminalInit(wrapElement) {
-  const terminal = wrapElement.querySelector('.terminal');
+function terminalInit(wrap) {
+  const terminal = wrap.find('.terminal');
 
-  const append = chunk => {
-    terminal.appendChild(chunk);
+  const append = $chunk => {
+    $chunk.appendTo(terminal);
 
-    while (terminal.innerHTML.length > maxBytesOnScreen) {
-      const firstChild = terminal.firstElementChild;
-      if (firstChild) {
-        terminal.removeChild(firstChild);
-      }
-    }
+    while (terminal.html().length > maxBytesOnScreen)
+      terminal.children(':first').remove();
 
-    wrapElement.scrollTop = terminal.offsetHeight;
+    wrap.scrollTop(terminal.height());
   };
   const atBottom = () => {
-    const lastMessage = terminal.lastElementChild;
-    if (!lastMessage) return true;
+    const lastMessage = terminal.children().last();
+    if (lastMessage.length === 0) return true;
 
-    const lastMessageRect = lastMessage.getBoundingClientRect();
-    const wrapRect = wrapElement.getBoundingClientRect();
-
-    const lastMessageBottom = lastMessageRect.top + lastMessageRect.height;
-    const wrapBottom = wrapRect.top + wrapRect.height;
+    const lastMessageBottom =
+      lastMessage.offset().top + lastMessage.outerHeight();
+    const wrapBottom = wrap.offset().top + wrap.outerHeight();
 
     const isAtBottom = lastMessageBottom <= wrapBottom;
 
@@ -76,7 +68,7 @@ function terminalInit(wrapElement) {
     scrolling = true;
 
     return loadChunks(startId, true, len).then(chunks =>
-      chunks.forEach(chunk => terminal.insertBefore(chunk, terminal.firstChild))
+      chunks.forEach(chunk => terminal.prepend(chunk))
     );
   };
 
@@ -84,102 +76,83 @@ function terminalInit(wrapElement) {
     scrolling = true;
 
     return loadChunks(startId, false, len).then(chunks =>
-      chunks.forEach(chunk => terminal.appendChild(chunk))
+      chunks.forEach(chunk => terminal.append(chunk))
     );
   };
 
   const scrollToBottom = () => {
-    wrapElement.scrollTop = 0;
-    terminal.innerHTML = '';
+    wrap.scrollTop(0);
+    terminal.empty();
 
     return loadTop(null, maxBytesOnScreen).then(() => {
-      wrapElement.scrollTop = terminal.offsetHeight;
+      wrap.scrollTop(terminal.height());
       scrolling = false;
     }); // scroll to the bottom
   };
 
-  // Custom event handlers
-  const handleScrollToBottom = () => scrollToBottom();
-  wrapElement.addEventListener('scroll-to-bottom', handleScrollToBottom);
+  wrap.on('scroll-to-bottom', () => scrollToBottom());
 
-  const handleOutput = (e) => {
-    const txt = e.detail;
-    const span = document.createElement('span');
-    span.innerHTML = ansi2html(txt);
+  terminal.on('output', function (e, txt) {
+    const span = $('<span/>');
+    span.html(ansi2html(txt));
 
     manip.colorParseAndReplace(span);
     manip.manipParseAndReplace(span);
 
-    terminal.dispatchEvent(new CustomEvent('output-html', { detail: span.innerHTML }));
-  };
+    terminal.trigger('output-html', [span.html()]);
+  });
 
   // this may not be called from outside of terminal logic.
-  const handleOutputHtml = (e) => {
-    const html = e.detail;
+  terminal.on('output-html', function (e, html) {
     historyDb
       .then(db => db.append(html))
       .then(id => {
-        const chunk = document.createElement('div');
-        chunk.innerHTML = html;
-        chunk.setAttribute('data-chunk-id', id);
+        const $chunk = $('<div>').append(html).attr('data-chunk-id', id);
 
-        // Add accessibility attributes to manip commands
-        const manipCmds = chunk.querySelectorAll('.manip-cmd');
-        manipCmds.forEach(cmd => {
-          cmd.setAttribute('role', 'link');
-          cmd.setAttribute('tabindex', '0');
+        $chunk.find('.manip-cmd').each(function () {
+          $(this).attr('role', 'link').attr('tabindex', 0);
         });
-
         // only append a DOM node if we're at the bottom
         if (autoScrollEnabled) {
-          append(chunk);
+          append($chunk);
         } else {
-          wrapElement.dispatchEvent(new CustomEvent('bump-unread'));
+          wrap.trigger('bump-unread', []);
         }
 
         lastChunkId = id;
 
         // Transform output into clean text and call user-defined triggers.
-        const chunkCopy = chunk.cloneNode(true);
-        const noTriggers = chunkCopy.querySelectorAll('.no-triggers');
-        noTriggers.forEach(el => el.remove());
-        const textContent = chunkCopy.textContent || '';
-        const lines = textContent.replace(/\xa0/g, ' ').split('\n');
+        const $chunkCopy = $chunk.clone();
+        $chunkCopy.find('.no-triggers').remove();
+        const lines = $chunkCopy.text().replace(/\xa0/g, ' ').split('\n');
         lines.forEach(line => {
-          // Only process non-empty lines to avoid undefined/null issues
-          if (line && typeof line === 'string') {
-            processTriggers(line);
-            const trigger = document.querySelector('.trigger');
-            if (trigger) {
-              trigger.dispatchEvent(new CustomEvent('text', { detail: line }));
-            }
-          }
+          processTriggers(line);
+          $('.trigger').trigger('text', ['' + line]);
         });
+        // lines.forEach(line => $('.trigger').trigger('text', [''+line]));
       });
-  };
+  });
 
-  terminal.addEventListener('output', handleOutput);
-  terminal.addEventListener('output-html', handleOutputHtml);
-
-  const handleScroll = () => {
+  wrap.on('scroll', () => {
     autoScrollEnabled = atBottom();
 
     // We are already handling a scroll event.
     // Don't trigger another database operation until the current one completed.
     if (scrolling) {
+      // Prevent scrolling, so that the user won't hit the limits of the scrolling window.
+      // e.preventDefault();
       return;
     }
 
     // Load top chunks while scrolling up.
-    if (wrapElement.scrollTop < scrollThreshold) {
-      let firstChunk = terminal.querySelector('div[data-chunk-id]:first-child');
+    if (wrap.scrollTop() < scrollThreshold) {
+      let $fst = terminal.find('div[data-chunk-id]:first-child');
 
       // terminal is empty, can't scroll
-      if (!firstChunk) return;
+      if ($fst.length === 0) return;
 
-      let rect = firstChunk.getBoundingClientRect();
-      let off = rect.top;
-      let fstId = parseInt(firstChunk.getAttribute('data-chunk-id'));
+      let off = $fst.offset().top;
+      let fstId = parseInt($fst.attr('data-chunk-id'));
 
       if (fstId === firstChunkId) {
         // We're at the very top, no need to load anything
@@ -187,15 +160,10 @@ function terminalInit(wrapElement) {
       }
 
       loadTop(fstId, bytesToLoad).then(() => {
-        while (terminal.innerHTML.length > maxBytesOnScreen) {
-          const lastChild = terminal.lastElementChild;
-          if (lastChild) {
-            terminal.removeChild(lastChild);
-          }
-        }
+        while (terminal.html().length > maxBytesOnScreen)
+          terminal.children(':last').remove();
 
-        let newRect = firstChunk.getBoundingClientRect();
-        wrapElement.scrollTop = wrapElement.scrollTop + newRect.top - off;
+        wrap.scrollTop(wrap.scrollTop() + $fst.offset().top - off);
         scrolling = false;
       });
 
@@ -204,50 +172,42 @@ function terminalInit(wrapElement) {
 
     // Load bottom chunks while scrolling down.
     if (
-      wrapElement.scrollTop >
-      terminal.offsetHeight - wrapElement.offsetHeight - scrollThreshold
+      wrap.scrollTop() >
+      terminal.height() - wrap.height() - scrollThreshold
     ) {
-      let lastChunk = terminal.querySelector('div[data-chunk-id]:last-child');
+      let $lst = terminal.find('div[data-chunk-id]:last-child');
 
       // terminal is empty, can't scroll
-      if (!lastChunk) return;
+      if ($lst.length === 0) return;
 
-      let rect = lastChunk.getBoundingClientRect();
-      let off = rect.top;
-      let lstId = parseInt(lastChunk.getAttribute('data-chunk-id'));
+      let off = $lst.offset().top;
+      let lstId = parseInt($lst.attr('data-chunk-id'));
 
       // The last html element in the DOM is the last sent message,
       // so we're at the bottom, no need to load anything.
       if (lstId === lastChunkId) {
         // Check if we can reset the unread counter and return
         if (atBottom()) {
-          wrapElement.dispatchEvent(new CustomEvent('reset-unread'));
+          wrap.trigger('reset-unread', []);
         }
 
         return;
       }
 
       loadBottom(lstId, bytesToLoad).then(() => {
-        while (terminal.innerHTML.length > maxBytesOnScreen) {
-          const firstChild = terminal.firstElementChild;
-          if (firstChild) {
-            terminal.removeChild(firstChild);
-          }
-        }
+        while (terminal.html().length > maxBytesOnScreen)
+          terminal.children(':first').remove();
 
-        let newRect = lastChunk.getBoundingClientRect();
-        wrapElement.scrollTop = wrapElement.scrollTop + newRect.top - off;
+        wrap.scrollTop(wrap.scrollTop() + $lst.offset().top - off);
         scrolling = false;
       });
 
       return;
     }
-  };
-
-  wrapElement.addEventListener('scroll', handleScroll);
+  });
 
   scrollToBottom().then(() => {
-    const echo = html => terminal.dispatchEvent(new CustomEvent('output-html', { detail: html }));
+    const echo = html => terminal.trigger('output-html', [html]);
 
     echo('<hr>');
     echo(
@@ -259,31 +219,27 @@ function terminalInit(wrapElement) {
   });
 
   return () => {
-    wrapElement.removeEventListener('scroll-to-bottom', handleScrollToBottom);
-    wrapElement.removeEventListener('scroll', handleScroll);
-    terminal.removeEventListener('output', handleOutput);
-    terminal.removeEventListener('output-html', handleOutputHtml);
+    wrap.off();
+    terminal.off();
   };
 }
 
 const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
   const wrap = useRef();
 
-  useEffect(() => terminalInit(wrap.current), [wrap]);
+  useEffect(() => terminalInit($(wrap.current)), [wrap]);
 
   useEffect(() => {
-    const current = wrap.current;
-    const handleBumpUnread = () => bumpUnread();
-    current.addEventListener('bump-unread', handleBumpUnread);
-    return () => current.removeEventListener('bump-unread', handleBumpUnread);
-  }, [bumpUnread]);
+    let cur = $(wrap.current);
+    cur.on('bump-unread', bumpUnread);
+    return () => cur.off('bump-unread', bumpUnread);
+  }, [wrap, bumpUnread]);
 
   useEffect(() => {
-    const current = wrap.current;
-    const handleResetUnread = () => resetUnread();
-    current.addEventListener('reset-unread', handleResetUnread);
-    return () => current.removeEventListener('reset-unread', handleResetUnread);
-  }, [resetUnread]);
+    let cur = $(wrap.current);
+    cur.on('reset-unread', resetUnread);
+    return () => cur.off('reset-unread', resetUnread);
+  }, [wrap, resetUnread]);
 
   useEffect(() => {
     const enableAutoScroll = () => {
@@ -306,7 +262,7 @@ const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
   useImperativeHandle(
     ref,
     () => ({
-      scrollToBottom: () => wrap.current.dispatchEvent(new CustomEvent('scroll-to-bottom')),
+      scrollToBottom: () => $(wrap.current).trigger('scroll-to-bottom', []),
     }),
     [wrap]
   );

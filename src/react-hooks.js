@@ -1,3 +1,5 @@
+import $ from 'jquery';
+
 import { useState, useEffect } from 'react';
 
 // Called every time from render(). This function can conventially be called
@@ -11,20 +13,13 @@ export function usePrompt() {
   // in this case called only once.
   useEffect(() => {
     // This event handler will cause the state (prompt) to change.
-    const handlePromptUpdate = (e) => setPrompt(Object.assign({}, prompt, e.detail[0]));
+    const handlePromptUpdate = (e, b) => setPrompt($.extend({}, prompt, b));
 
     // Subscribes to the custom rpc-prompt event, triggering prompt state change every time.
-    const rpcEvents = document.getElementById('rpc-events');
-    if (rpcEvents) {
-      rpcEvents.addEventListener('rpc-prompt', handlePromptUpdate);
-    }
+    $('#rpc-events').on('rpc-prompt', handlePromptUpdate);
 
     // This function will be called when a component (that uses this state) is about to be unmounted.
-    return () => {
-      if (rpcEvents) {
-        rpcEvents.removeEventListener('rpc-prompt', handlePromptUpdate);
-      }
-    };
+    return () => $('#rpc-events').off('rpc-prompt', handlePromptUpdate);
   });
 
   // Returns current state value, to be used inside a component's render() function.

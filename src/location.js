@@ -1,3 +1,4 @@
+import $ from 'jquery';
 import getSessionId from './sessionid.js';
 import placeholders from './data/placeholders.json';
 
@@ -57,22 +58,15 @@ function createPlaceholder(loc) {
   return '';
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-  const rpcEvents = document.getElementById('rpc-events');
-  if (rpcEvents) {
-    rpcEvents.addEventListener('rpc-prompt', function (e) {
-      const b = e.detail[0];
-      const loc = {
-        area: b.area,
-        vnum: b.vnum,
-      };
-      const inputElement = document.querySelector('#input input');
-      if (inputElement) {
-        inputElement.setAttribute('placeholder', createPlaceholder(loc));
-      }
-      bcastLocation(loc);
-    });
-  }
+$(document).ready(function () {
+  $('#rpc-events').on('rpc-prompt', function (e, b) {
+    var loc = {
+      area: b.area,
+      vnum: b.vnum,
+    };
+    $('#input input').attr('placeholder', createPlaceholder(loc));
+    bcastLocation(loc);
+  });
 });
 
 export default function getLastLocation() {

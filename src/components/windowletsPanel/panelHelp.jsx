@@ -1,14 +1,10 @@
+import $ from 'jquery';
 import React, { useState, useEffect, useRef } from 'react';
-import $ from '../../jquery-shim.js';
-import 'devbridge-autocomplete';
 
 import { send } from '../../websock';
 
 const echo = txt => {
-  const terminal = document.querySelector('.terminal');
-  if (terminal) {
-    terminal.dispatchEvent(new CustomEvent('output', { detail: txt }));
-  }
+  $('.terminal').trigger('output', [txt]);
 };
 
 const useTypeahead = () => {
@@ -19,19 +15,13 @@ const useTypeahead = () => {
   });
 
   useEffect(() => {
-    fetch('/help/typeahead.json')
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
+    $.get('/help/typeahead.json', undefined, 'json')
       .then(data => {
         // Success:
         console.log('Retrieved', data.length, 'help topics.');
 
         // Convert retrieved JSON to format accepted by autocomplete plugin.
-        const topics = data.map(dataItem => ({
+        const topics = $.map(data, dataItem => ({
           value: dataItem.n.toLowerCase(),
           data: { link: dataItem.l, title: dataItem.t, id: dataItem.id },
         }));

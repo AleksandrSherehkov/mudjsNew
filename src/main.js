@@ -1,3 +1,4 @@
+import $ from 'jquery';
 import * as bootstrap from 'bootstrap';
 // Expose Bootstrap to global scope for use in other modules
 window.bootstrap = bootstrap;
@@ -19,76 +20,71 @@ import './main.css';
 const sessionId = getSessionId();
 let propertiesStorage = PropertiesStorage;
 
-window.addEventListener('beforeunload', function () {
+$(window).bind('beforeunload', function () {
   return 'leaving already?';
 });
 
-document.addEventListener('DOMContentLoaded', function () {
-  const logsButton = document.getElementById('logs-button');
-  if (logsButton) {
-    logsButton.addEventListener('click', function (e) {
-      var logs = [];
+$(document).ready(function () {
+  $('#logs-button').click(function (e) {
+    var logs = [];
 
-      e.preventDefault();
+    e.preventDefault();
 
-      historydb
-        .then(function (db) {
-          return db.load(null, false, 100000000, function (key, value) {
-            logs.push(value);
-          });
-        })
-        .then(function () {
-          var blobOpts = { type: 'text/html' },
-            blob = new Blob(logs, blobOpts),
-            url = URL.createObjectURL(blob);
-
-          logs = null;
-
-          // create a link
-          var link = document.createElement('a');
-          link.href = url;
-          link.download = 'mudjs.log';
-
-          // click on it
-          setTimeout(function () {
-            var event = document.createEvent('MouseEvents');
-            event.initMouseEvent(
-              'click',
-              true,
-              true,
-              window,
-              1,
-              0,
-              0,
-              0,
-              0,
-              false,
-              false,
-              false,
-              false,
-              0,
-              null
-            );
-            link.dispatchEvent(event);
-          }, 10);
+    historydb
+      .then(function (db) {
+        return db.load(null, false, 100000000, function (key, value) {
+          logs.push(value);
         });
-    });
-  }
+      })
+      .then(function () {
+        var blobOpts = { type: 'text/html' },
+          blob = new Blob(logs, blobOpts),
+          url = URL.createObjectURL(blob);
 
-  const mapButton = document.getElementById('map-button');
-  if (mapButton) {
-    mapButton.addEventListener('click', function (e) {
-      e.preventDefault();
+        logs = null;
 
-      if (!lastLocation()) {
-        return;
-      }
+        // create a link
+        var link = $('<a>').attr({
+          href: url,
+          download: 'mudjs.log',
+        })[0];
 
-      var basefilename = lastLocation().area.replace(/\.are$/, '');
-      var mapfile = '/maps/' + basefilename + '.html?sessionId=' + sessionId;
-      window.open(mapfile);
-    });
-  }
+        // click on it
+        setTimeout(function () {
+          var event = document.createEvent('MouseEvents');
+          event.initMouseEvent(
+            'click',
+            true,
+            true,
+            window,
+            1,
+            0,
+            0,
+            0,
+            0,
+            false,
+            false,
+            false,
+            false,
+            0,
+            null
+          );
+          link.dispatchEvent(event);
+        }, 10);
+      });
+  });
+
+  $('#map-button').click(function (e) {
+    e.preventDefault();
+
+    if (!lastLocation()) {
+      return;
+    }
+
+    var basefilename = lastLocation().area.replace(/\.are$/, '');
+    var mapfile = '/maps/' + basefilename + '.html?sessionId=' + sessionId;
+    window.open(mapfile);
+  });
 
   connect();
   initTerminalFontSize();
@@ -100,14 +96,12 @@ document.addEventListener('DOMContentLoaded', function () {
   var terminalFontSizeKey = 'terminalFontSize';
 
   function changeFontSize(delta) {
-    var terminal = document.querySelector('.terminal');
-    if (!terminal) return;
-    
-    var currentFontSize = parseFloat(getComputedStyle(terminal).fontSize);
-    var newFontSize = currentFontSize + delta;
-    terminal.style.fontSize = newFontSize + 'px';
-    localStorage.setItem(terminalFontSizeKey, newFontSize);
-    propertiesStorage['terminalFontSize'] = newFontSize;
+    var terminal = $('.terminal');
+    var style = terminal.css('font-size');
+    var fontSize = parseFloat(style);
+    terminal.css('font-size', fontSize + delta + 'px');
+    localStorage.setItem(terminalFontSizeKey, fontSize + delta);
+    propertiesStorage['terminalFontSize'] = fontSize + delta;
     localStorage.properties = JSON.stringify(propertiesStorage);
   }
 
@@ -116,40 +110,30 @@ document.addEventListener('DOMContentLoaded', function () {
       ? JSON.parse(localStorage.properties)['terminalFontSize']
       : propertiesStorage;
     if (cacheFontSize != null) {
-      var terminal = document.querySelector('.terminal');
-      if (terminal) {
-        terminal.style.fontSize = cacheFontSize + 'px';
-      }
+      var terminal = $('.terminal');
+      terminal.css('font-size', cacheFontSize + 'px');
     }
   }
 
-  const fontPlusButton = document.getElementById('font-plus-button');
-  if (fontPlusButton) {
-    fontPlusButton.addEventListener('click', function (e) {
-      e.preventDefault();
-      changeFontSize(fontDelta);
-    });
-  }
+  $('#font-plus-button').click(function (e) {
+    e.preventDefault();
+    changeFontSize(fontDelta);
+  });
 
-  const fontMinusButton = document.getElementById('font-minus-button');
-  if (fontMinusButton) {
-    fontMinusButton.addEventListener('click', function (e) {
-      e.preventDefault();
-      changeFontSize(-fontDelta);
-    });
-  }
+  $('#font-minus-button').click(function (e) {
+    e.preventDefault();
+    changeFontSize(-fontDelta);
+  });
 
   /* Save layout size */
-  const layoutSplitters = document.querySelectorAll('.layout-splitter');
-  layoutSplitters.forEach(splitter => {
-    splitter.addEventListener('click', function () {
-      propertiesStorage['terminalLayoutWidth'] =
-        document.querySelector('.terminal-wrap')?.getBoundingClientRect().width || 0;
-      propertiesStorage['panelLayoutWidth'] =
-        document.querySelector('#panel-wrap')?.getBoundingClientRect().width || 0;
-      propertiesStorage['mapLayoutWidth'] =
-        document.querySelector('#map-wrap')?.getBoundingClientRect().width || 0;
-      localStorage.properties = JSON.stringify(propertiesStorage);
-    });
+  $('.layout-splitter').on('click', function () {
+    propertiesStorage['terminalLayoutWidth'] =
+      document.querySelector('.terminal-wrap').getBoundingClientRect().width ||
+      0;
+    propertiesStorage['panelLayoutWidth'] =
+      document.querySelector('#panel-wrap').getBoundingClientRect().width || 0;
+    propertiesStorage['mapLayoutWidth'] =
+      document.querySelector('#map-wrap').getBoundingClientRect().width || 0;
+    localStorage.properties = JSON.stringify(propertiesStorage);
   });
 });

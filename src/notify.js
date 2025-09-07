@@ -1,32 +1,28 @@
+import $ from 'jquery';
+
 let notificationPermission = Notification.permission;
 
 // Один раз реєструємо обробник після першого кліку
-document.addEventListener('click', () => {
+$(document).one('click', () => {
   if ('Notification' in window && notificationPermission !== 'granted') {
     Notification.requestPermission().then(perm => {
       notificationPermission = perm;
     });
   }
-}, { once: true });
+});
 
 // Реєстрація події при готовності документа
-document.addEventListener('DOMContentLoaded', function () {
+$(document).ready(function () {
   if ('Notification' in window && notificationPermission === 'granted') {
-    const rpcEvents = document.getElementById('rpc-events');
-    if (rpcEvents) {
-      rpcEvents.addEventListener('rpc-notify', function (e) {
-        if (document.hidden) {
-          new Notification(e.detail[0]);
-        }
-      });
-    }
+    $('#rpc-events').on('rpc-notify', function (e, text) {
+      if (document.hidden) {
+        new Notification(text);
+      }
+    });
   }
 });
 
 // Функція виклику повідомлення
 export default function notify(txt) {
-  const rpcEvents = document.getElementById('rpc-events');
-  if (rpcEvents) {
-    rpcEvents.dispatchEvent(new CustomEvent('rpc-notify', { detail: [txt] }));
-  }
+  $('#rpc-events').trigger('rpc-notify', [txt]);
 }

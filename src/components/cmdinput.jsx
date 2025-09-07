@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MicIcon from '@mui/icons-material/Mic';
 import { useSelector } from 'react-redux';
+import $ from 'jquery';
 import { echo } from '../input';
 import { send, connect } from '../websock';
 import { getKeydown } from '../settings';
@@ -24,6 +25,20 @@ const input_history = localStorage.history
 let position = input_history.length;
 let current_cmd = '';
 
+$('body').on('click', '.builtin-cmd', function (e) {
+  const cmd = $(e.currentTarget);
+  const { sysCmd, sysCmdArgs } = splitCommand(cmd.attr('data-action'));
+  const command = getSystemCmd(sysCmd);
+  echo(cmd.attr('data-echo'));
+  if (!command) return errCmdDoesNotExist;
+  Commands[command]['payload'](sysCmdArgs);
+});
+
+const scrollPage = dir => {
+  const wrap = $('.terminal-wrap');
+  wrap.scrollTop(wrap.scrollTop() + wrap.height() * dir);
+};
+
 const CmdInput = () => {
   const theme = useTheme();
   const big = useMediaQuery(theme.breakpoints.up('sm'));
@@ -33,30 +48,6 @@ const CmdInput = () => {
   const [lang, setLang] = useState('en-US');
   const textInput = useRef(null);
   const recognitionRef = useRef(null);
-
-  const scrollPage = dir => {
-    const wrap = document.querySelector('.terminal-wrap');
-    if (wrap) {
-      wrap.scrollTop = wrap.scrollTop + wrap.clientHeight * dir;
-    }
-  };
-
-  // Event handler for builtin commands using event delegation
-  useEffect(() => {
-    const handleBuiltinCmd = (e) => {
-      if (e.target.classList.contains('builtin-cmd')) {
-        const cmd = e.target;
-        const { sysCmd, sysCmdArgs } = splitCommand(cmd.getAttribute('data-action'));
-        const command = getSystemCmd(sysCmd);
-        echo(cmd.getAttribute('data-echo'));
-        if (!command) return errCmdDoesNotExist;
-        Commands[command]['payload'](sysCmdArgs);
-      }
-    };
-    
-    document.body.addEventListener('click', handleBuiltinCmd);
-    return () => document.body.removeEventListener('click', handleBuiltinCmd);
-  }, []);
 
   const startSpeech = () => {
     if (recognitionRef.current) {
@@ -87,14 +78,13 @@ const CmdInput = () => {
   useEffect(() => {
     const handleKey = e => {
       if (e.which === 9) return;
-      const input = document.querySelector('#input input');
-      const helpInput = document.querySelector('#help input');
-      // Check if any modal is open
+      const input = $('#input input');
+      // Replace jQuery modal check with native Bootstrap 5 check
       if (document.body.classList.contains('modal-open')) return;
 
       if (!sendHotKeyCmd(e)) {
         if (e.ctrlKey || e.altKey) return;
-        if (input === document.activeElement || helpInput === document.activeElement) return;
+        if (input.is(':focus') || $('#help input').is(':focus')) return;
 
         if (document.getElementById('inputBox')) {
           textInput.current.focus();
@@ -252,12 +242,9 @@ const CmdInput = () => {
     }
 
     const lines = userCommand.split('\n');
-    lines.forEach(line => {
-      echo(line);
-      const triggers = document.getElementById('triggers');
-      if (triggers) {
-        triggers.dispatchEvent(new CustomEvent('input', { bubbles: true, detail: line }));
-      }
+    $(lines).each(function () {
+      echo(this);
+      $('.trigger').trigger('input', [this]);
     });
   };
 

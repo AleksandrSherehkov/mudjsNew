@@ -1,4 +1,4 @@
-import $ from './jquery-shim.js';
+import $ from 'jquery';
 import loader from '@monaco-editor/loader';
 import { rpccmd } from './websock.js';
 
@@ -24,30 +24,8 @@ let monacoEditor;
 let openFiles = {}; // { filename: { value: 'code', saved: true } }
 let currentFile = null;
 
-// Helper function to wait for DOM element to be available
-function waitForElement(selector, maxAttempts = 50, delay = 100) {
-  return new Promise((resolve, reject) => {
-    let attempts = 0;
-    
-    function checkElement() {
-      attempts++;
-      const element = document.querySelector(selector);
-      
-      if (element) {
-        resolve(element);
-      } else if (attempts >= maxAttempts) {
-        reject(new Error(`Element ${selector} not found after ${maxAttempts} attempts`));
-      } else {
-        setTimeout(checkElement, delay);
-      }
-    }
-    
-    checkElement();
-  });
-}
-
 $(document).ready(function () {
-  loader.init().then(async monaco => {
+  loader.init().then(monaco => {
     // 🧠 Регистрация языка "fenia"
     monaco.languages.register({ id: 'fenia' });
 
@@ -138,7 +116,32 @@ $(document).ready(function () {
       },
     });
 
-    // Set up event handlers that don't depend on Monaco editor first
+    // 👇 Установка редактора с языком "fenia"
+    const editorElement = $('#cs-modal .editor')[0];
+    monacoEditor = monaco.editor.create(editorElement, {
+      value: '',
+      language: 'fenia',
+      theme: 'vs-dark',
+      fontSize: 16,
+      lineNumbers: 'off',
+      wordWrap: 'on',
+      minimap: { enabled: false },
+      automaticLayout: true,
+      scrollBeyondLastLine: false,
+      padding: { top: 20, bottom: 20 },
+      tabSize: 4,
+      insertSpaces: false,
+      detectIndentation: false,
+      formatOnType: true,
+    });
+
+    monacoEditor.onDidChangeModelContent(() => {
+      if (currentFile && openFiles[currentFile]) {
+        openFiles[currentFile].saved = false;
+        markTabAsUnsaved(currentFile);
+      }
+    });
+
     $('#editor-tabs').on('click', '.nav-link', function (e) {
       e.preventDefault();
       const filename = $(this).data('filename');
@@ -148,12 +151,12 @@ $(document).ready(function () {
     $('#cs-modal .run-button').click(function (e) {
       e.preventDefault();
       const subj = $('#cs-subject').val();
-      if (currentFile && monacoEditor) {
+      if (currentFile) {
         openFiles[currentFile].value = monacoEditor.getValue();
         openFiles[currentFile].saved = true;
         markTabAsSaved(currentFile);
       }
-      const body = monacoEditor ? fixindent(tabsize4to8, monacoEditor.getValue()) : '';
+      const body = fixindent(tabsize4to8, monacoEditor.getValue());
       rpccmd('cs_eval', subj, body);
     });
 
@@ -164,91 +167,15 @@ $(document).ready(function () {
       }
     });
 
-    $('#rpc-events').on('rpc-cs_edit', async function (e, subj, body) {
-      // If Monaco editor wasn't initialized yet, try to initialize it now
-      if (!monacoEditor) {
-        try {
-          const editorElement = await waitForElement('#cs-modal .editor', 10, 100);
-          console.log('Initializing Monaco editor for cs-modal on demand');
-          
-          monacoEditor = monaco.editor.create(editorElement, {
-            value: '',
-            language: 'fenia',
-            theme: 'vs-dark',
-            fontSize: 16,
-            lineNumbers: 'off',
-            wordWrap: 'on',
-            minimap: { enabled: false },
-            automaticLayout: true,
-            scrollBeyondLastLine: false,
-            padding: { top: 20, bottom: 20 },
-            tabSize: 4,
-            insertSpaces: false,
-            detectIndentation: false,
-            formatOnType: true,
-          });
-
-          // Set up event handlers for the newly created editor
-          if (monacoEditor) {
-            monacoEditor.onDidChangeModelContent(() => {
-              if (currentFile && openFiles[currentFile]) {
-                openFiles[currentFile].saved = false;
-                markTabAsUnsaved(currentFile);
-              }
-            });
-          }
-        } catch (error) {
-          console.warn('Failed to initialize Monaco editor on modal open:', error);
-        }
-      }
-      
+    $('#rpc-events').on('rpc-cs_edit', function (e, subj, body) {
       if (subj) $('#cs-subject').val(subj);
       if (body) openFileTab(subj || 'file.fenia', fixindent(tabsize8to4, body));
       
       // Use Bootstrap 5 native Modal API instead of jQuery
       const modalElement = document.getElementById('cs-modal');
-      if (modalElement) {
-        const modal = new window.bootstrap.Modal(modalElement);
-        modal.show();
-      }
+      const modal = new window.bootstrap.Modal(modalElement);
+      modal.show();
     });
-
-    // Try to initialize Monaco editor if the container is available
-    try {
-      const editorElement = await waitForElement('#cs-modal .editor');
-      
-      console.log('Monaco editor container found for cs-modal');
-      
-      monacoEditor = monaco.editor.create(editorElement, {
-        value: '',
-        language: 'fenia',
-        theme: 'vs-dark',
-        fontSize: 16,
-        lineNumbers: 'off',
-        wordWrap: 'on',
-        minimap: { enabled: false },
-        automaticLayout: true,
-        scrollBeyondLastLine: false,
-        padding: { top: 20, bottom: 20 },
-        tabSize: 4,
-        insertSpaces: false,
-        detectIndentation: false,
-        formatOnType: true,
-      });
-
-      // Only set up Monaco-specific event handlers if editor was created successfully
-      if (monacoEditor) {
-        monacoEditor.onDidChangeModelContent(() => {
-          if (currentFile && openFiles[currentFile]) {
-            openFiles[currentFile].saved = false;
-            markTabAsUnsaved(currentFile);
-          }
-        });
-      }
-    } catch (error) {
-      console.warn('Monaco editor container element not found initially. Selector: #cs-modal .editor. Will try to initialize on demand.', error);
-      // Don't return here - continue with event handler setup
-    }
   });
 });
 
@@ -263,9 +190,7 @@ $('#editor-tabs').on('click', '.tab-close', function (e) {
     if (firstRemaining) {
       switchToFile(firstRemaining);
     } else {
-      if (monacoEditor) {
-        monacoEditor.setValue('');
-      }
+      monacoEditor.setValue('');
       currentFile = null;
       $('#cs-subject').val('');
     }
@@ -288,7 +213,7 @@ function openFileTab(filename, content) {
 }
 
 function autoSaveCurrentFile() {
-  if (currentFile && openFiles[currentFile] && monacoEditor) {
+  if (currentFile && openFiles[currentFile]) {
     openFiles[currentFile].value = monacoEditor.getValue();
     openFiles[currentFile].saved = true;
     markTabAsSaved(currentFile);
@@ -303,9 +228,7 @@ function switchToFile(filename) {
   $('#editor-tabs .nav-link').removeClass('active');
   $(`#editor-tabs .nav-link[data-filename="${filename}"]`).addClass('active');
 
-  if (monacoEditor) {
-    monacoEditor.setValue(openFiles[filename].value);
-  }
+  monacoEditor.setValue(openFiles[filename].value);
   $('#cs-subject').val(filename);
 }
 

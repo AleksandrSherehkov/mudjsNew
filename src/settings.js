@@ -17,6 +17,22 @@ const createDOMUtility = () => {
     if (typeof selector === 'string') {
       const element = document.querySelector(selector);
       return {
+        on: (eventType, handler) => {
+          if (element) {
+            element.addEventListener(eventType, handler);
+          }
+        },
+        off: (eventType, handler) => {
+          if (element) {
+            if (handler) {
+              element.removeEventListener(eventType, handler);
+            } else {
+              // If no handler specified, clone the element to remove all listeners
+              const newElement = element.cloneNode(true);
+              element.parentNode?.replaceChild(newElement, element);
+            }
+          }
+        },
         trigger: (eventType, data) => {
           if (element) {
             element.dispatchEvent(new CustomEvent(eventType, { detail: data }));

@@ -96,10 +96,10 @@ function terminalInit(wrap) {
     const span = $('<span/>');
     span.html(ansi2html(txt));
 
-    manip.colorParseAndReplace(span);
-    manip.manipParseAndReplace(span);
+    manip.colorParseAndReplace(span[0]);
+    manip.manipParseAndReplace(span[0]);
 
-    terminal.dispatchEvent(new CustomEvent('output-html', { detail: span.html() }));
+    terminal[0].dispatchEvent(new CustomEvent('output-html', { detail: span.html() }));
   });
 
   // this may not be called from outside of terminal logic.
@@ -116,7 +116,7 @@ function terminalInit(wrap) {
         if (autoScrollEnabled) {
           append($chunk);
         } else {
-          wrap.dispatchEvent(new CustomEvent('bump-unread'));
+          wrap[0].dispatchEvent(new CustomEvent('bump-unread'));
         }
 
         lastChunkId = id;
@@ -191,7 +191,7 @@ function terminalInit(wrap) {
       if (lstId === lastChunkId) {
         // Check if we can reset the unread counter and return
         if (atBottom()) {
-          wrap.dispatchEvent(new CustomEvent('reset-unread'));
+          wrap[0].dispatchEvent(new CustomEvent('reset-unread'));
         }
 
         return;
@@ -210,7 +210,7 @@ function terminalInit(wrap) {
   });
 
   scrollToBottom().then(() => {
-    const echo = html => terminal.dispatchEvent(new CustomEvent('output-html', { detail: html }));
+    const echo = html => terminal[0].dispatchEvent(new CustomEvent('output-html', { detail: html }));
 
     echo('<hr>');
     echo(

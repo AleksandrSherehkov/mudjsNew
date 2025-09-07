@@ -13,6 +13,8 @@ const notifyListeners = () => {
 // Працює постійно незалежно від монтованих компонентів
 const handler = (e) => {
   const text = e.detail || e.target.value;
+  if (!text || typeof text !== 'string') return;
+  
   const triggers = {
     говоришь: 'say',
     говорит: 'say',

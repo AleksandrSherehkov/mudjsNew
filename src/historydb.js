@@ -158,13 +158,13 @@ function initIndexedHistoryDb() {
 
                   if (next) {
                     // Check if value is defined and has length property
-                    if (next.value != null && typeof next.value === 'string') {
+                    if (next.value != null && typeof next.value === 'string' && next.value.length > 0) {
                       f(next.key, next.value);
                       loaded += next.value.length;
-                    } else {
-                      // Skip records with undefined/null values
-                      console.warn('Skipping record with undefined/null value at key:', next.key);
                     }
+                    // Silently skip records with undefined/null/empty values
+                    // This is normal for IndexedDB databases that may have been corrupted
+                    // or contain legacy data
 
                     if (loaded < limit) {
                       next.continue();

@@ -254,9 +254,9 @@ const CmdInput = () => {
     const lines = userCommand.split('\n');
     lines.forEach(line => {
       echo(line);
-      const trigger = document.querySelector('.trigger');
-      if (trigger) {
-        trigger.dispatchEvent(new CustomEvent('input', { bubbles: true, detail: line }));
+      const triggers = document.getElementById('triggers');
+      if (triggers) {
+        triggers.dispatchEvent(new CustomEvent('input', { bubbles: true, detail: line }));
       }
     });
   };

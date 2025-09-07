@@ -143,12 +143,16 @@ function terminalInit(wrapElement) {
         const chunkCopy = chunk.cloneNode(true);
         const noTriggers = chunkCopy.querySelectorAll('.no-triggers');
         noTriggers.forEach(el => el.remove());
-        const lines = chunkCopy.textContent.replace(/\xa0/g, ' ').split('\n');
+        const textContent = chunkCopy.textContent || '';
+        const lines = textContent.replace(/\xa0/g, ' ').split('\n');
         lines.forEach(line => {
-          processTriggers(line);
-          const trigger = document.querySelector('.trigger');
-          if (trigger) {
-            trigger.dispatchEvent(new CustomEvent('text', { detail: line }));
+          // Only process non-empty lines to avoid undefined/null issues
+          if (line && typeof line === 'string') {
+            processTriggers(line);
+            const trigger = document.querySelector('.trigger');
+            if (trigger) {
+              trigger.dispatchEvent(new CustomEvent('text', { detail: line }));
+            }
           }
         });
       });

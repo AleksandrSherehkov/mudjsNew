@@ -50,5 +50,19 @@ export default defineConfig({
         secure: false,
       },
     },
+    fs: {
+      // Allow serving files from monaco-editor
+      allow: ['..', './node_modules/monaco-editor'],
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Ensure Monaco Editor is properly bundled
+        manualChunks: {
+          monaco: ['monaco-editor'],
+        },
+      },
+    },
   },
 });

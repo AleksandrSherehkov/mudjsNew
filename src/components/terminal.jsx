@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-
+import $ from 'jquery';
 
 import historyDb from '../historydb';
 import ansi2html from '../ansi2html';

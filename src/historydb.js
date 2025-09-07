@@ -157,9 +157,14 @@ function initIndexedHistoryDb() {
                   var next = e.target.result;
 
                   if (next) {
-                    f(next.key, next.value);
-
-                    loaded += next.value.length;
+                    // Check if value is defined and has length property
+                    if (next.value != null && typeof next.value === 'string') {
+                      f(next.key, next.value);
+                      loaded += next.value.length;
+                    } else {
+                      // Skip records with undefined/null values
+                      console.warn('Skipping record with undefined/null value at key:', next.key);
+                    }
 
                     if (loaded < limit) {
                       next.continue();

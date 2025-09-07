@@ -6,7 +6,6 @@ import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { Add, Remove } from '@mui/icons-material';
-import $ from 'jquery';
 
 import lastLocation from '../location';
 
@@ -127,18 +126,24 @@ export default function Map() {
   const mapElement = useRef(null);
 
   const recenterPosition = () => {
-    const $active = $(mapElement.current).find('.room.active');
-    if (!$active.length) return;
-    $active.get(0).scrollIntoView({ block: 'center', inline: 'center' });
+    const activeRoom = mapElement.current?.querySelector('.room.active');
+    if (!activeRoom) return;
+    activeRoom.scrollIntoView({ block: 'center', inline: 'center' });
   };
 
   const highlightPosition = useCallback(() => {
     const room = location.vnum;
-    $(mapElement.current).find('.room').removeClass('active');
+    if (!mapElement.current) return;
+    
+    const rooms = mapElement.current.querySelectorAll('.room');
+    rooms.forEach(room => room.classList.remove('active'));
 
     if (room && room !== '') {
-      $(mapElement.current).find(`.room-${room}`).addClass('active');
-      recenterPosition();
+      const targetRoom = mapElement.current.querySelector(`.room-${room}`);
+      if (targetRoom) {
+        targetRoom.classList.add('active');
+        recenterPosition();
+      }
     }
   }, [location.vnum]);
 
@@ -146,23 +151,27 @@ export default function Map() {
 
   useEffect(() => {
     const cacheFontSize = localStorage.getItem(mapFontSizeKey);
-    if (cacheFontSize != null) {
-      $(mapElement.current).css('font-size', cacheFontSize + 'px');
+    if (cacheFontSize != null && mapElement.current) {
+      mapElement.current.style.fontSize = cacheFontSize + 'px';
     }
   }, []);
 
   const changeFontSize = delta => {
-    const map = $(mapElement.current);
-    const style = map.css('font-size');
-    const fontSize = parseFloat(style);
-    map.css('font-size', fontSize + delta + 'px');
-    localStorage.setItem(mapFontSizeKey, fontSize + delta);
+    if (!mapElement.current) return;
+    
+    const currentStyle = window.getComputedStyle(mapElement.current);
+    const fontSize = parseFloat(currentStyle.fontSize);
+    const newFontSize = fontSize + delta;
+    mapElement.current.style.fontSize = newFontSize + 'px';
+    localStorage.setItem(mapFontSizeKey, newFontSize);
     recenterPosition();
   };
 
   useEffect(() => {
-    $(mapElement.current).html(mapSource);
-    highlightPosition();
+    if (mapElement.current) {
+      mapElement.current.innerHTML = mapSource;
+      highlightPosition();
+    }
   }, [mapSource, highlightPosition]);
 
   useEffect(() => {

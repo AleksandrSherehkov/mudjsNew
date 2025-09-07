@@ -25,18 +25,22 @@ const input_history = localStorage.history
 let position = input_history.length;
 let current_cmd = '';
 
-document.body.on('click', '.builtin-cmd', function (e) {
-  const cmd = $(e.currentTarget);
-  const { sysCmd, sysCmdArgs } = splitCommand(cmd.attr('data-action'));
-  const command = getSystemCmd(sysCmd);
-  echo(cmd.attr('data-echo'));
-  if (!command) return errCmdDoesNotExist;
-  Commands[command]['payload'](sysCmdArgs);
+document.body.addEventListener('click', function (e) {
+  const cmd = e.target.closest('.builtin-cmd');
+  if (cmd) {
+    const { sysCmd, sysCmdArgs } = splitCommand(cmd.getAttribute('data-action'));
+    const command = getSystemCmd(sysCmd);
+    echo(cmd.getAttribute('data-echo'));
+    if (!command) return errCmdDoesNotExist;
+    Commands[command]['payload'](sysCmdArgs);
+  }
 });
 
 const scrollPage = dir => {
-  const wrap = $('.terminal-wrap');
-  wrap.scrollTop(wrap.scrollTop() + wrap.height() * dir);
+  const wrap = document.querySelector('.terminal-wrap');
+  if (wrap) {
+    wrap.scrollTop = wrap.scrollTop + wrap.clientHeight * dir;
+  }
 };
 
 const CmdInput = () => {
@@ -84,7 +88,7 @@ const CmdInput = () => {
 
       if (!sendHotKeyCmd(e)) {
         if (e.ctrlKey || e.altKey) return;
-        if (input.is(':focus') || $('#help input').is(':focus')) return;
+        if (input === document.activeElement || document.querySelector('#help input') === document.activeElement) return;
 
         if (document.getElementById('inputBox')) {
           textInput.current.focus();

@@ -256,7 +256,7 @@ const CmdInput = () => {
       echo(line);
       const trigger = document.querySelector('.trigger');
       if (trigger) {
-        trigger.dispatchEvent(new CustomEvent('input', { detail: line }));
+        trigger.dispatchEvent(new CustomEvent('input', { bubbles: true, detail: line }));
       }
     });
   };

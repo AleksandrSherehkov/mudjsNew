@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MicIcon from '@mui/icons-material/Mic';
 import { useSelector } from 'react-redux';
-import $ from 'jquery';
+
 import { echo } from '../input';
 import { send, connect } from '../websock';
 import { getKeydown } from '../settings';
@@ -25,7 +25,7 @@ const input_history = localStorage.history
 let position = input_history.length;
 let current_cmd = '';
 
-$('body').on('click', '.builtin-cmd', function (e) {
+document.body.on('click', '.builtin-cmd', function (e) {
   const cmd = $(e.currentTarget);
   const { sysCmd, sysCmdArgs } = splitCommand(cmd.attr('data-action'));
   const command = getSystemCmd(sysCmd);
@@ -78,7 +78,7 @@ const CmdInput = () => {
   useEffect(() => {
     const handleKey = e => {
       if (e.which === 9) return;
-      const input = $('#input input');
+      const input = document.querySelector('#input input');
       // Replace jQuery modal check with native Bootstrap 5 check
       if (document.body.classList.contains('modal-open')) return;
 
@@ -242,9 +242,12 @@ const CmdInput = () => {
     }
 
     const lines = userCommand.split('\n');
-    $(lines).each(function () {
-      echo(this);
-      $('.trigger').trigger('input', [this]);
+    lines.forEach(line => {
+      echo(line);
+      const triggers = document.querySelectorAll('.trigger');
+      triggers.forEach(trigger => {
+        trigger.dispatchEvent(new CustomEvent('input', { detail: line }));
+      });
     });
   };
 

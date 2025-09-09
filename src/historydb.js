@@ -159,7 +159,9 @@ function initIndexedHistoryDb() {
                   if (next) {
                     f(next.key, next.value);
 
-                    loaded += next.value.length;
+                    if (next.value && next.value.length != null) {
+                      loaded += next.value.length;
+                    }
 
                     if (loaded < limit) {
                       next.continue();

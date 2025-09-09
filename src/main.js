@@ -73,12 +73,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  connect();
-  initTerminalFontSize();
-
   // Управление размером шрифта терминала
   const fontDelta = 2;
   const terminalFontSizeKey = 'terminalFontSize';
+
+  connect();
+  initTerminalFontSize();
 
   function changeFontSize(delta) {
     const terminalEl = document.querySelector('.terminal');

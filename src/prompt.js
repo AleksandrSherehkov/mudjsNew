@@ -1,24 +1,29 @@
-import $ from 'jquery';
-import 'devbridge-autocomplete';
+document.addEventListener('DOMContentLoaded', () => {
+  // Клик по любому элементу с атрибутом data-hint → открыть/закрыть соответствующий Bootstrap-модал
+  document.body.addEventListener('click', e => {
+    const hintElem = e.target.closest('[data-hint]');
+    if (!hintElem) return;
 
-$(document).ready(function () {
-  // Обработка клика по элементам с data-hint
-  $('body').on('click', '[data-hint]', function (e) {
-    const modalElement = document.getElementById($(this).data('hint'));
-    if (modalElement && window.bootstrap && window.bootstrap.Modal) {
-      const modal = new window.bootstrap.Modal(modalElement);
-      modal.toggle();
+    const modalId = hintElem.getAttribute('data-hint');
+    const modalElement = document.getElementById(modalId);
+    if (modalElement && window.bootstrap?.Modal) {
+      new window.bootstrap.Modal(modalElement).toggle();
     }
+
     e.stopPropagation();
     e.preventDefault();
   });
 
-  // Слушаем события от сервера и обновляем глобальный mudprompt
-  $('#rpc-events').on('rpc-prompt', function (e, b) {
-    if (window.mudprompt === undefined) {
-      window.mudprompt = b;
-    } else {
-      $.extend(window.mudprompt, b);
-    }
-  });
+  // Обновление глобального объекта prompt из RPC-события
+  const rpcEvents = document.getElementById('rpc-events');
+  if (rpcEvents) {
+    rpcEvents.addEventListener('rpc-prompt', event => {
+      const b = event?.detail || {};
+      if (window.mudprompt === undefined) {
+        window.mudprompt = { ...b };
+      } else {
+        Object.assign(window.mudprompt, b);
+      }
+    });
+  }
 });

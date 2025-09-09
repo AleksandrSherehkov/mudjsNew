@@ -1,4 +1,3 @@
-import $ from 'jquery';
 import { combineReducers, legacy_createStore as createStore } from 'redux';
 
 // Reducer для з'єднання
@@ -19,7 +18,7 @@ const prompt = (state = null, action) => {
     case 'DISCONNECTED':
       return null;
     case 'NEW_PROMPT':
-      return { ...state, ...action.changes };
+      return { ...(state || {}), ...action.changes };
     default:
       return state;
   }
@@ -30,15 +29,27 @@ const onConnected = () => ({ type: 'CONNECTED' });
 const onDisconnected = () => ({ type: 'DISCONNECTED' });
 const onNewPrompt = changes => ({ type: 'NEW_PROMPT', changes });
 
-// Комбінований reducer
+// Комбінований reducer та store
 const reducer = combineReducers({ connection, prompt });
-
-// ✅ Створюємо store без middleware
 const store = createStore(reducer);
 
-// Прив'язуємо івент на зміну промпта
-$(document).ready(() => {
-  $('#rpc-events').on('rpc-prompt', (e, b) => store.dispatch(onNewPrompt(b)));
-});
+// Підписка на подію 'rpc-prompt' для оновлення стану prompt
+function attachRpcPromptListener() {
+  const rpcEventsElem = document.getElementById('rpc-events');
+  if (!rpcEventsElem) return;
+  rpcEventsElem.addEventListener('rpc-prompt', event => {
+    const b = event?.detail || {};
+    store.dispatch(onNewPrompt(b));
+  });
+}
+
+// Якщо DOM вже готовий — підключаємо одразу; інакше — після завантаження
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', attachRpcPromptListener, {
+    once: true,
+  });
+} else {
+  attachRpcPromptListener();
+}
 
 export { store, onConnected, onDisconnected };

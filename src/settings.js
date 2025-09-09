@@ -1,107 +1,130 @@
-import $ from 'jquery';
 import loader from '@monaco-editor/loader';
 import { send } from './websock.js';
 import notify from './notify.js';
 
+// Эхо в терминал (замена $('.terminal').trigger('output', [txt]))
 const echo = txt => {
-  $('.terminal').trigger('output', [txt]);
+  document.querySelectorAll('.terminal').forEach(termEl => {
+    termEl.dispatchEvent(new CustomEvent('output', { detail: txt }));
+  });
 };
 
 let keydown = function () {};
 
 const applySettings = s => {
-  const settings = `return function(params) {
+  // Выполняем пользовательский код настроек в замкнутом окружении
+  // и возвращаем объект с функциями/обработчиками (в частности keydown)
+  const factorySource = `return function(params) {
     'use strict';
-    let { keydown, notify, send, echo, $, mudprompt } = params;
+    let { keydown, notify, send, echo, mudprompt } = params;
     (function() { ${s} })();
     return { keydown };
   }`;
 
-  const exports = Function(settings)()({
+  const factory = Function(factorySource)();
+  const exports = factory({
     keydown,
     notify,
     send,
     echo,
-    $,
     mudprompt: window.mudprompt,
   });
 
-  keydown = exports.keydown;
+  if (exports && typeof exports.keydown === 'function') {
+    keydown = exports.keydown;
+  }
 };
 
-let editor;
-
-$(document).ready(function () {
-  function hashCode(s) {
-    let hash = 0;
-    if (!s) return hash;
-
-    for (let i = 0; i < s.length; i++) {
-      const chr = s.charCodeAt(i);
-      hash = (hash << 5) - hash + chr;
-      hash |= 0;
-    }
-
-    return hash;
+function hashCode(s) {
+  let hash = 0;
+  if (!s) return hash;
+  for (let i = 0; i < s.length; i++) {
+    const chr = s.charCodeAt(i);
+    hash = (hash << 5) - hash + chr;
+    hash |= 0;
   }
+  return hash;
+}
 
-  $.ajax({
-    url: 'defaults.js',
-    datatype: 'text',
-    beforeSend: function (xhr) {
-      xhr.overrideMimeType('text/plain');
-    },
-  }).then(function (contents) {
-    const contentsHash = '' + hashCode(contents);
-    const settingsHash = '' + hashCode(localStorage.settings);
+document.addEventListener('DOMContentLoaded', () => {
+  // Загружаем defaults.js как текст (аналог $.ajax с overrideMimeType)
+  fetch('defaults.js', { cache: 'no-cache' })
+    .then(r => r.text())
+    .then(contents => {
+      const contentsHash = String(hashCode(contents));
+      const settingsHash = String(hashCode(localStorage.settings));
 
-    if (contentsHash !== localStorage.defaultsHash) {
-      if (
-        localStorage.defaultsHash &&
-        settingsHash !== localStorage.defaultsHash
-      ) {
-        console.log(settingsHash + ': ' + localStorage.defaultsHash);
-      } else {
-        localStorage.settings = contents;
-      }
-      localStorage.defaultsHash = contentsHash;
-    }
-
-    loader.init().then(monaco => {
-      editor = monaco.editor.create($('#settings-modal .editor')[0], {
-        value: localStorage.settings || '',
-        language: 'javascript',
-        theme: 'vs-dark',
-        fontSize: 16,
-        wordWrap: 'on',
-        lineNumbers: 'off',
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        automaticLayout: true,
-        padding: { top: 20, bottom: 20 },
-        tabSize: 4,
-        insertSpaces: false,
-        detectIndentation: true,
-        formatOnType: true,
-      });
-
-      try {
-        applySettings(editor.getValue());
-      } catch (e) {
-        console.log(e);
-        echo(e);
+      if (contentsHash !== localStorage.defaultsHash) {
+        if (
+          localStorage.defaultsHash &&
+          settingsHash !== localStorage.defaultsHash
+        ) {
+          // Пользователь менял настройки — не перезаписываем, только лог
+          console.log(settingsHash + ': ' + localStorage.defaultsHash);
+        } else {
+          // Настроек нет/они совпадали с прежними дефолтами — обновляем на новые дефолты
+          localStorage.settings = contents;
+        }
+        localStorage.defaultsHash = contentsHash;
       }
 
-      $('#settings-save-button').click(function (e) {
-        e.preventDefault();
+      // Инициализация Monaco editor
+      return loader.init().then(monaco => {
+        const editorHost = document.querySelector('#settings-modal .editor');
+        if (!editorHost) return;
 
-        $('.trigger').off('input.myNamespace text.myNamespace');
-        const val = editor.getValue();
-        applySettings(val);
-        localStorage.settings = val;
+        const editor = monaco.editor.create(editorHost, {
+          value: localStorage.settings || '',
+          language: 'javascript',
+          theme: 'vs-dark',
+          fontSize: 16,
+          wordWrap: 'on',
+          lineNumbers: 'off',
+          minimap: { enabled: false },
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          padding: { top: 20, bottom: 20 },
+          tabSize: 4,
+          insertSpaces: false,
+          detectIndentation: true,
+          formatOnType: true,
+        });
+
+        // Пробуем применить настройки при загрузке
+        try {
+          applySettings(editor.getValue());
+        } catch (e) {
+          console.log(e);
+          echo(String(e));
+        }
+
+        // Сохранение настроек
+        const saveBtn = document.getElementById('settings-save-button');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', e => {
+            e.preventDefault();
+
+            // В jQuery-версии тут было: $('.trigger').off('input.myNamespace text.myNamespace')
+            // У нативных слушателей нет пространств имён — предполагаем,
+            // что пользовательский код сам корректно перевешивает нужные обработчики.
+
+            const val = editor.getValue();
+            try {
+              applySettings(val);
+              localStorage.settings = val;
+              echo('Настройки сохранены.\n');
+            } catch (err) {
+              console.log(err);
+              echo('Ошибка применения настроек: ' + String(err) + '\n');
+            }
+          });
+        }
       });
+    })
+    .catch(err => {
+      console.log(err);
+      echo('Не удалось загрузить defaults.js\n');
     });
-  });
 });
 
 export function getKeydown() {

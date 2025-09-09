@@ -6,7 +6,6 @@ import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import { Add, Remove } from '@mui/icons-material';
-import $ from 'jquery';
 
 import lastLocation from '../location';
 
@@ -14,15 +13,12 @@ const useLocation = () => {
   const [location, setLocation] = useState(lastLocation() || {});
 
   useEffect(() => {
-    if ('BroadcastChannel' in window) {
-      const locationChannel = new BroadcastChannel('location');
-      locationChannel.onmessage = e => {
-        if (e.data.what === 'location') {
-          setLocation(e.data.location);
-        }
-      };
-      return () => locationChannel.close();
-    }
+    if (!('BroadcastChannel' in window)) return;
+    const locationChannel = new BroadcastChannel('location');
+    locationChannel.onmessage = e => {
+      if (e?.data?.what === 'location') setLocation(e.data.location);
+    };
+    return () => locationChannel.close();
   }, []);
 
   return location;
@@ -32,20 +28,22 @@ const useMapSource = location => {
   const [mapSource, setMapSource] = useState();
 
   useEffect(() => {
-    if (!location.area || location.area === '') return;
-
+    if (!location.area) return;
     const mapName = location.area.replace(/are$/, 'html');
     const mapUrl = `/maps/sources/${mapName}`;
 
-    $.get(mapUrl)
-      .then(map =>
-        setMapSource(
-          map.replaceAll(
-            /<a href=".*?\.html">(.*?)<\/a>/g,
-            '<span class="fgdc">$1</span>'
-          )
-        )
-      )
+    fetch(mapUrl)
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then(map => {
+        const processed = map.replace(
+          /<a href=".*?\.html">(.*?)<\/a>/g,
+          '<span class="fgdc">$1</span>'
+        );
+        setMapSource(processed);
+      })
       .catch(e => {
         console.log('Map error', e);
         setMapSource('');
@@ -60,26 +58,18 @@ const useAreaData = () => {
   const areasUrl = `/maps/index.json`;
 
   const refreshAreaData = useCallback(() => {
-    console.log('Refreshing area data...');
-
     fetch(areasUrl)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
       })
       .then(data => {
-        if (!Array.isArray(data)) {
-          throw new Error('Data is not an array');
-        }
-
-        setAreaData(
-          data.reduce((map, obj) => {
-            map[obj.file] = obj.name;
-            return map;
-          }, {})
-        );
+        if (!Array.isArray(data)) throw new Error('Data is not an array');
+        const byFile = data.reduce((acc, obj) => {
+          acc[obj.file] = obj.name;
+          return acc;
+        }, {});
+        setAreaData(byFile);
       })
       .catch(e => {
         console.error('Error fetching', areasUrl, e);
@@ -88,11 +78,9 @@ const useAreaData = () => {
   }, [areasUrl]);
 
   useEffect(() => {
-    const refreshTimeout = 1000 * 60 * 15;
     refreshAreaData();
-
-    const intervalId = setInterval(refreshAreaData, refreshTimeout);
-    return () => clearInterval(intervalId);
+    const id = setInterval(refreshAreaData, 1000 * 60 * 15);
+    return () => clearInterval(id);
   }, [refreshAreaData]);
 
   return areaData;
@@ -127,41 +115,58 @@ export default function Map() {
   const mapElement = useRef(null);
 
   const recenterPosition = () => {
-    const $active = $(mapElement.current).find('.room.active');
-    if (!$active.length) return;
-    $active.get(0).scrollIntoView({ block: 'center', inline: 'center' });
+    const root = mapElement.current;
+    if (!root) return;
+    const active = root.querySelector('.room.active');
+    if (!active) return;
+    active.scrollIntoView({ block: 'center', inline: 'center' });
   };
 
   const highlightPosition = useCallback(() => {
-    const room = location.vnum;
-    $(mapElement.current).find('.room').removeClass('active');
+    const root = mapElement.current;
+    if (!root) return;
 
-    if (room && room !== '') {
-      $(mapElement.current).find(`.room-${room}`).addClass('active');
-      recenterPosition();
+    root.querySelectorAll('.room.active').forEach(el => {
+      el.classList.remove('active');
+    });
+
+    const room = location.vnum;
+    if (room) {
+      const target = root.querySelector(`.room-${room}`);
+      if (target) {
+        target.classList.add('active');
+        recenterPosition();
+      }
     }
   }, [location.vnum]);
 
   const mapFontSizeKey = 'map-font-size';
 
   useEffect(() => {
+    const root = mapElement.current;
+    if (!root) return;
     const cacheFontSize = localStorage.getItem(mapFontSizeKey);
     if (cacheFontSize != null) {
-      $(mapElement.current).css('font-size', cacheFontSize + 'px');
+      root.style.fontSize = `${cacheFontSize}px`;
     }
   }, []);
 
   const changeFontSize = delta => {
-    const map = $(mapElement.current);
-    const style = map.css('font-size');
-    const fontSize = parseFloat(style);
-    map.css('font-size', fontSize + delta + 'px');
-    localStorage.setItem(mapFontSizeKey, fontSize + delta);
+    const root = mapElement.current;
+    if (!root) return;
+    const style = window.getComputedStyle(root).fontSize;
+    const fontSize = parseFloat(style) || 14;
+    const next = fontSize + delta;
+    root.style.fontSize = `${next}px`;
+    localStorage.setItem(mapFontSizeKey, String(next));
     recenterPosition();
   };
 
   useEffect(() => {
-    $(mapElement.current).html(mapSource);
+    const root = mapElement.current;
+    if (!root) return;
+    // Вставляем HTML карты
+    root.innerHTML = mapSource || '';
     highlightPosition();
   }, [mapSource, highlightPosition]);
 

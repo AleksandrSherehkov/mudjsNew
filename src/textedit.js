@@ -1,27 +1,36 @@
-import $ from 'jquery';
 import loader from '@monaco-editor/loader';
-import 'devbridge-autocomplete';
 import { rpccmd } from './websock';
 import { setupSpeechRecognition } from './speech';
 
-let monacoEditor;
+let monacoEditor = null;
 let recognition = null;
 
-// ⬇️ Скрытый элемент для озвучки
-const ariaAnnouncer = document.createElement('div');
-ariaAnnouncer.setAttribute('id', 'aria-announce');
-ariaAnnouncer.setAttribute('aria-live', 'polite');
-ariaAnnouncer.setAttribute('role', 'status');
-Object.assign(ariaAnnouncer.style, {
-  position: 'absolute',
-  width: '1px',
-  height: '1px',
-  overflow: 'hidden',
-  clip: 'rect(1px, 1px, 1px, 1px)',
-  clipPath: 'inset(50%)',
-});
-document.body.appendChild(ariaAnnouncer);
+/* =========================
+ * A11y: скрытый live-элемент
+ * ========================= */
+function ensureAriaAnnouncer() {
+  let ariaAnnouncer = document.getElementById('aria-announce');
+  if (ariaAnnouncer) return ariaAnnouncer;
 
+  ariaAnnouncer = document.createElement('div');
+  ariaAnnouncer.id = 'aria-announce';
+  ariaAnnouncer.setAttribute('aria-live', 'polite');
+  ariaAnnouncer.setAttribute('role', 'status');
+  Object.assign(ariaAnnouncer.style, {
+    position: 'absolute',
+    width: '1px',
+    height: '1px',
+    overflow: 'hidden',
+    clip: 'rect(1px, 1px, 1px, 1px)',
+    clipPath: 'inset(50%)',
+  });
+  document.body.appendChild(ariaAnnouncer);
+  return ariaAnnouncer;
+}
+
+/* =========================
+ * Параметры редактора по ширине
+ * ========================= */
 function getResponsiveEditorParams() {
   const minWidth = 360;
   const maxWidth = 1440;
@@ -39,54 +48,131 @@ function getResponsiveEditorParams() {
   };
 }
 
+/* =========================
+ * Help IDs (autocomplete без jQuery)
+ * ========================= */
 function initHelpIds() {
-  const heditLookup = $('#textedit-modal input');
+  const input = document.querySelector('#textedit-modal input');
+  if (!input) return;
 
-  $.get(
-    'hedit.json',
-    function (data) {
-      const topics = $.map(data, item => ({
-        value: `${item.id}: ${item.kw.toLowerCase()}`,
-        data: item.id,
-      }));
+  // контейнер для подсказок
+  let list = document.getElementById('textedit-help-suggestions');
+  const removeList = () => {
+    const el = document.getElementById('textedit-help-suggestions');
+    if (el) el.remove();
+  };
+  const buildList = () => {
+    removeList();
+    list = document.createElement('ul');
+    list.id = 'textedit-help-suggestions';
+    list.className = 'autocomplete-suggestions';
+    input.parentNode && input.parentNode.appendChild(list);
+    return list;
+  };
 
-      heditLookup.autocomplete({
-        lookup: topics,
-        lookupLimit: 20,
-        autoSelectFirst: true,
-        showNoSuggestionNotice: true,
-        noSuggestionNotice: 'Справка не найдена',
-        onSelect: () => $('#textedit-modal .editor').focus(),
+  fetch('hedit.json', { cache: 'no-cache' })
+    .then(r => r.json())
+    .then(data => {
+      // data: [{id, kw}, ...]
+      const topics = Array.isArray(data)
+        ? data.map(item => ({
+            value: `${item.id}: ${String(item.kw || '').toLowerCase()}`,
+            id: item.id,
+            title: String(item.kw || ''),
+          }))
+        : [];
+
+      const render = value => {
+        const v = String(value || '')
+          .trim()
+          .toLowerCase();
+        removeList();
+        if (!v) return;
+        const matches = topics.filter(t => t.value.includes(v)).slice(0, 20);
+
+        const ul = buildList();
+        if (!matches.length) {
+          const li = document.createElement('li');
+          li.className = 'no-suggestion';
+          li.textContent = 'Справка не найдена';
+          ul.appendChild(li);
+          return;
+        }
+
+        matches.forEach((m, idx) => {
+          const li = document.createElement('li');
+          li.className = 'autocomplete-suggestion';
+          li.textContent = `${m.id}: ${m.title}`;
+          li.addEventListener('click', () => {
+            // при выборе — фокус в редактор
+            removeList();
+            const editorEl = document.querySelector('#textedit-modal .editor');
+            if (editorEl) editorEl.focus();
+          });
+          // автофокус на первом (аналог autoSelectFirst)
+          if (idx === 0) li.setAttribute('data-first', 'true');
+          ul.appendChild(li);
+        });
+      };
+
+      input.addEventListener('input', () => render(input.value));
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') removeList();
+        if (e.key === 'Enter') {
+          // эмулируем выбор первого
+          const first = document.querySelector(
+            '#textedit-help-suggestions .autocomplete-suggestion[data-first="true"]'
+          );
+          if (first) {
+            first.click();
+            e.preventDefault();
+          }
+        }
       });
-    },
-    'json'
-  ).fail(() => {
-    console.log('Cannot retrieve help ids.');
-    $('#textedit-modal input').hide();
-  });
+      input.addEventListener('blur', () => {
+        // небольшая задержка, чтобы успел отработать click
+        setTimeout(removeList, 150);
+      });
+    })
+    .catch(() => {
+      console.log('Cannot retrieve help ids.');
+      input.style.display = 'none';
+    });
 }
 
-function initVoiceRecognition(monaco) {
+/* =========================
+ * Голосовой ввод
+ * ========================= */
+function initVoiceRecognition() {
   if (recognition) recognition.abort();
+  const langSelect = document.querySelector('#voice-lang');
+  const lang = (langSelect && langSelect.value) || 'ru-RU';
 
   recognition = setupSpeechRecognition({
-    lang: document.querySelector('#voice-lang').value || 'ru-RU',
+    lang,
     buttonSelector: '#start-voice',
     onResult: transcript => {
-      const currentText = monaco.getValue();
-      monaco.setValue(currentText + ' ' + transcript);
+      if (!monacoEditor) return;
+      const currentText = monacoEditor.getValue();
+      monacoEditor.setValue(currentText + ' ' + transcript);
     },
     onError: event => {
-      console.error('Speech recognition error:', event.error);
+      console.error('Speech recognition error:', event?.error);
     },
   });
 }
 
-$(document).ready(() => {
-  loader.init().then(monaco => {
-    const editorElement = $('#textedit-modal .editor')[0];
-    const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
+/* =========================
+ * Инициализация
+ * ========================= */
+document.addEventListener('DOMContentLoaded', () => {
+  ensureAriaAnnouncer();
 
+  loader.init().then(monaco => {
+    const editorElement = document.querySelector('#textedit-modal .editor');
+    if (!editorElement) return;
+
+    const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
     monacoEditor = monaco.editor.create(editorElement, {
       value: '',
       accessibilitySupport: 'on',
@@ -112,58 +198,83 @@ $(document).ready(() => {
       renderLineHighlight: 'none',
     });
 
-    initVoiceRecognition(monacoEditor);
+    // Голос
+    initVoiceRecognition();
+    const langSel = document.querySelector('#voice-lang');
+    if (langSel) {
+      langSel.addEventListener('change', () => initVoiceRecognition());
+    }
 
-    // 🔄 Перезапуск речи при смене языка
-    document.querySelector('#voice-lang').addEventListener('change', () => {
-      initVoiceRecognition(monacoEditor);
-    });
-
+    // A11y: оповещение при достижении 80 символов в строке
     monacoEditor.onDidChangeModelContent(() => {
       const model = monacoEditor.getModel();
       const pos = monacoEditor.getPosition();
+      if (!model || !pos) return;
       const line = model.getLineContent(pos.lineNumber);
       if (line.length === 80) {
-        ariaAnnouncer.textContent = `Вы достигли 80 символов на строке ${pos.lineNumber}.`;
+        const a11y = ensureAriaAnnouncer();
+        a11y.textContent = `Вы достигли 80 символов на строке ${pos.lineNumber}.`;
       }
     });
 
+    // Респонсив-настройки при ресайзе
     window.addEventListener('resize', () => {
-      if (monacoEditor) {
-        const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
-        monacoEditor.updateOptions({ fontSize, lineHeight, padding });
-      }
+      if (!monacoEditor) return;
+      const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
+      monacoEditor.updateOptions({ fontSize, lineHeight, padding });
     });
 
-    $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
-      monacoEditor.setValue(text || '');
-      
-      // Use Bootstrap 5 native Modal API instead of jQuery
-      const modalElement = document.getElementById('textedit-modal');
-      const modal = new window.bootstrap.Modal(modalElement);
-      modal.show();
+    // Открытие редактора по RPC
+    const rpcEvents = document.getElementById('rpc-events');
+    if (rpcEvents) {
+      rpcEvents.addEventListener('rpc-editor_open', event => {
+        const [text, arg] = Array.isArray(event.detail) ? event.detail : [];
+        if (monacoEditor) monacoEditor.setValue(text || '');
 
-      if (arg === 'help') {
-        $('#textedit-modal input').show();
-        initHelpIds();
-      } else {
-        $('#textedit-modal input').hide();
-      }
+        const modalEl = document.getElementById('textedit-modal');
+        if (modalEl && window.bootstrap?.Modal) {
+          const modal = new window.bootstrap.Modal(modalEl);
+          modal.show();
 
-      $('#textedit-modal .save-button')
-        .off()
-        .click(e => {
-          e.preventDefault();
-          const val = monacoEditor.getValue();
-          rpccmd('editor_save', val);
-        });
+          const helpInput = document.querySelector('#textedit-modal input');
+          if (arg === 'help') {
+            if (helpInput) helpInput.style.display = '';
+            initHelpIds();
+          } else if (helpInput) {
+            helpInput.style.display = 'none';
+          }
 
-      $('#textedit-modal .cancel-button')
-        .off()
-        .click(e => {
-          e.preventDefault();
-          modal.hide();
-        });
-    });
+          // Кнопки: сохраняем и отменяем (each open → один обработчик)
+          const saveBtn = document.querySelector(
+            '#textedit-modal .save-button'
+          );
+          const cancelBtn = document.querySelector(
+            '#textedit-modal .cancel-button'
+          );
+
+          if (saveBtn) {
+            saveBtn.addEventListener(
+              'click',
+              e => {
+                e.preventDefault();
+                const val = monacoEditor ? monacoEditor.getValue() : '';
+                rpccmd('editor_save', val);
+              },
+              { once: true }
+            );
+          }
+          if (cancelBtn) {
+            cancelBtn.addEventListener(
+              'click',
+              e => {
+                e.preventDefault();
+                modal.hide();
+              },
+              { once: true }
+            );
+          }
+        }
+      });
+    }
   });
 });

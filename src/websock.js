@@ -1,11 +1,10 @@
 import { store, onConnected, onDisconnected } from './store.js';
-import $ from 'jquery';
 import Telnet from './telnet';
 
 const PROTO_VERSION = 'DreamLand Web Client/2.1';
 
 let wsUrl = 'wss://dreamland.rocks/dreamland';
-let ws;
+let ws = null;
 
 if (globalThis.location.hash === '#build') {
   wsUrl = 'wss://dreamland.rocks/buildplot';
@@ -15,12 +14,7 @@ if (globalThis.location.hash === '#build') {
 
 function rpccmd(cmd, ...args) {
   if (ws) {
-    ws.send(
-      JSON.stringify({
-        command: cmd,
-        args: args,
-      })
-    );
+    ws.send(JSON.stringify({ command: cmd, args }));
   }
 }
 
@@ -28,72 +22,98 @@ function send(text) {
   rpccmd('console_in', text + '\n');
 }
 
-function process(s) {
-  $('.terminal').trigger('output', [s]);
+function processOutput(s) {
+  document.querySelectorAll('.terminal').forEach(termEl => {
+    termEl.dispatchEvent(new CustomEvent('output', { detail: s }));
+  });
 }
 
-// attach default RPC handlers
-$(document).ready(function () {
-  const telnet = new Telnet();
+/* =========================
+ * Telnet + RPC event wiring
+ * ========================= */
+const telnet = new Telnet();
+telnet.handleRaw = s => {
+  processOutput(s);
+};
 
-  telnet.handleRaw = function (s) {
-    process(s);
-  };
+function attachRpcHandlers() {
+  const rpc = document.getElementById('rpc-events');
+  if (!rpc) return;
 
-  $('#rpc-events')
-    .on('rpc-console_out', function (e, b) {
-      
-      telnet.process(b);
-    })
-    .on('rpc-alert', function (e, b) {
-      alert(b);
-    })
-    .on('rpc-version', function (e, version, nonce) {
-      console.log('rpc-version', version, nonce);
+  // console_out: первый аргумент detail[0]
+  rpc.addEventListener('rpc-console_out', e => {
+    const payload = Array.isArray(e.detail) ? e.detail[0] : e.detail;
+    telnet.process(payload);
+  });
 
-      if (version !== PROTO_VERSION) {
-        process(
-          '\n\u001b[1;31mВерсия клиента (' +
-            PROTO_VERSION +
-            ') не совпадает с версией сервера (' +
-            version +
-            ').\n' +
-            'Обнови страницу, если не поможет - почисти кеши.\u001b[0;37m\n'
-        );
-        ws.close();
-      }
+  // alert: первый аргумент detail[0]
+  rpc.addEventListener('rpc-alert', e => {
+    const msg = Array.isArray(e.detail) ? e.detail[0] : e.detail;
+    if (msg != null) alert(String(msg));
+  });
 
-      ws.nonce = nonce;
-    });
-});
+  // version: [version, nonce]
+  rpc.addEventListener('rpc-version', e => {
+    const version = e.detail?.[0];
+    const nonce = e.detail?.[1];
+    console.log('rpc-version', version, nonce);
 
+    if (version !== PROTO_VERSION) {
+      processOutput(
+        `\n\u001b[1;31mВерсия клиента (${PROTO_VERSION}) не совпадает с версией сервера (${version}).\n` +
+          'Обнови страницу, если не поможет - почисти кеши.\u001b[0;37m\n'
+      );
+      if (ws) ws.close();
+      return;
+    }
+    if (ws) ws.nonce = nonce;
+  });
+}
+
+// Подключаем обработчики, когда DOM готов
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', attachRpcHandlers, {
+    once: true,
+  });
+} else {
+  attachRpcHandlers();
+}
+
+/* =========================
+ * WebSocket lifecycle
+ * ========================= */
 function connect() {
   ws = new WebSocket(wsUrl, ['binary']);
-
   ws.binaryType = 'arraybuffer';
 
-  ws.onmessage = function (e) {
+  ws.onmessage = e => {
     let b = new Uint8Array(e.data);
+    // Декодирование, совместимое с оригиналом
     b = String.fromCharCode.apply(null, b);
     b = decodeURIComponent(escape(b));
-    b = JSON.parse(b);
-    
-    $('#rpc-events').trigger('rpc-' + b.command, b.args);
+    const msg = JSON.parse(b);
+
+    const rpc = document.getElementById('rpc-events');
+    if (rpc) {
+      const eventName = 'rpc-' + msg.command;
+      const detailData = msg.args || [];
+      rpc.dispatchEvent(new CustomEvent(eventName, { detail: detailData }));
+    }
   };
 
-  ws.onopen = function () {
+  ws.onopen = () => {
     send('1');
   };
 
-  ws.onclose = function () {
-    process(
+  ws.onclose = () => {
+    processOutput(
       '\u001b[1;31m#################### DISCONNECTED ####################\u001b[0;37m\n'
     );
     ws = null;
     store.dispatch(onDisconnected());
   };
 
-  process('Connecting....\n');
+  processOutput('Connecting....\n');
   store.dispatch(onConnected());
 }
 

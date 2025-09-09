@@ -1,153 +1,157 @@
-import $ from 'jquery';
-import hotkeyCmd, { hotkeyHelp } from './sysCommands/hotkey'
-import propertiesCmd, { settingsHelp } from './sysCommands/userProperties'
-import helpCmd, { helpHelp } from './sysCommands/help'
-import varCmd, { varHelp } from './sysCommands/var'
-import deleteCmd, { deleteHelp } from './sysCommands/delete'
-import actionCmd, { actionHelp } from './sysCommands/action'
+import hotkeyCmd, { hotkeyHelp } from './sysCommands/hotkey';
+import propertiesCmd, { settingsHelp } from './sysCommands/userProperties';
+import helpCmd, { helpHelp } from './sysCommands/help';
+import varCmd, { varHelp } from './sysCommands/var';
+import deleteCmd, { deleteHelp } from './sysCommands/delete';
+import actionCmd, { actionHelp } from './sysCommands/action';
 
 const multiCmdHelp = {
-    title: `Выполнить указанную команду несколько раз, подробнее ${clickableLink('#help multiCmd')}`,
-    description: `Синтаксис:
+  title: `Выполнить указанную команду несколько раз, подробнее ${clickableLink(
+    '#help multiCmd'
+  )}`,
+  description: `Синтаксис:
 #number action - выполнить команду action указанное число раз (number)
 
 Примеры:
 #10 новость
 #3 сбежать|возврат
 
-`
-}
+`,
+};
 
 const cmdAliases = {
-    'удалить' : 'delete',
-    'справка' : 'help',
-    'кнопка' : 'hotkey',
-    'настройки' : 'settings',
-    'переменная' : 'var',
-    'действие' : 'action'
-}
+  удалить: 'delete',
+  справка: 'help',
+  кнопка: 'hotkey',
+  настройки: 'settings',
+  переменная: 'var',
+  действие: 'action',
+};
 
 const Commands = {
-    action: {
-        payload: function(value) {
-            actionCmd(value)
-        },
-        help: {
-            title: actionHelp.title,
-            description: actionHelp.description
-        }
+  action: {
+    payload(value) {
+      actionCmd(value);
     },
     help: {
-        payload: function(value) {
-            helpCmd(value)
-        },
-        help: {
-            title: helpHelp.title,
-            description: helpHelp.description
-        }
+      title: actionHelp.title,
+      description: actionHelp.description,
     },
-    hotkey: {
-        payload: function(value) {
-            hotkeyCmd(value)
-        },
-        help: {
-            title: hotkeyHelp.title,
-            description: hotkeyHelp.description
-        }
+  },
+  help: {
+    payload(value) {
+      helpCmd(value);
     },
-    var: {
-        payload: function(value) {
-            varCmd(value)
-        },
-        help: {
-            title: varHelp.title,
-            description: varHelp.description
-        }
+    help: {
+      title: helpHelp.title,
+      description: helpHelp.description,
     },
-    multiCmd: {
-        payload: function(value) {
-            const { sysCmd, sysCmdArgs } = splitCommand(value)
-            for (let i = 0; i < parseInt(sysCmd); i++) {
-                $('.trigger').trigger('input', ['' + sysCmdArgs.trim()]);
-            }
-        },
-        help: multiCmdHelp
+  },
+  hotkey: {
+    payload(value) {
+      hotkeyCmd(value);
     },
-    settings: {
-        payload: function(value) {
-            propertiesCmd(value)
-        },
-        help: {
-            title: settingsHelp.title,
-            description: settingsHelp.description
-        }
+    help: {
+      title: hotkeyHelp.title,
+      description: hotkeyHelp.description,
     },
-    delete: {
-        payload: function(value) {
-            deleteCmd(value)
-        },
-        help: {
-            title: deleteHelp.title,
-            description: deleteHelp.description
-        }
-    }
-}
+  },
+  var: {
+    payload(value) {
+      varCmd(value);
+    },
+    help: {
+      title: varHelp.title,
+      description: varHelp.description,
+    },
+  },
+  multiCmd: {
+    payload(value) {
+      const { sysCmd, sysCmdArgs } = splitCommand(value);
+      const count = parseInt(sysCmd, 10);
+      if (Number.isNaN(count) || count <= 0) return;
+      const text = String(sysCmdArgs).trim();
+
+      // Эмуляция: $('.trigger').trigger('input', [text])
+      document.querySelectorAll('.trigger').forEach(el => {
+        el.dispatchEvent(new CustomEvent('input', { detail: text }));
+      });
+    },
+    help: multiCmdHelp,
+  },
+  settings: {
+    payload(value) {
+      propertiesCmd(value);
+    },
+    help: {
+      title: settingsHelp.title,
+      description: settingsHelp.description,
+    },
+  },
+  delete: {
+    payload(value) {
+      deleteCmd(value);
+    },
+    help: {
+      title: deleteHelp.title,
+      description: deleteHelp.description,
+    },
+  },
+};
 
 export function getSystemCmd(cmd) {
-    const re = new RegExp(cmd)
-    for (let command in Commands) {
-        if (re.test(command)) {
-            return command
-        }
-    }
-    for (let command in cmdAliases) {
-        if (re.test(command)) {
-            return cmdAliases[command]
-        }
-    }
+  const re = new RegExp(cmd);
+  for (const command in Commands) {
+    if (re.test(command)) return command;
+  }
+  for (const alias in cmdAliases) {
+    if (re.test(alias)) return cmdAliases[alias];
+  }
 }
 
 export function getSystemCmdAliases(cmd) {
-    let string = ''
-    let aliases = []
-    for (let alias in cmdAliases) {
-        if (cmdAliases[alias] === cmd) {
-            aliases.push(alias)
-        }
+  let string = '';
+  const aliases = [];
+  for (const alias in cmdAliases) {
+    if (cmdAliases[alias] === cmd) aliases.push(alias);
+  }
+  if (aliases[0]) {
+    string += '( ';
+    for (let i = 0; i < aliases.length; i++) {
+      string += `${clickableLink('#' + aliases[i])} `;
     }
-    if(aliases[0]) {
-        string += '( '
-        for (let i = 0; i < aliases.length; i++) {
-            string += `${clickableLink('#' + aliases[i])} `
-        }
-        string += ') '
-    }
-    return string
+    string += ') ';
+  }
+  return string;
 }
 
-export const errCmdDoesNotExist = `Этой команды не существует, набери ${clickableLink('#help')} для получения списка доступных команд. \n`
+export const errCmdDoesNotExist = `Этой команды не существует, набери ${clickableLink(
+  '#help'
+)} для получения списка доступных команд. \n`;
 
 export function clickableLink(cmd) {
-    return `<span class="builtin-cmd manip-link" data-action="${cmd}" data-echo="${cmd}">${cmd}</span>`
+  return `<span class="builtin-cmd manip-link" data-action="${cmd}" data-echo="${cmd}">${cmd}</span>`;
 }
 
 export function parseStringCmd(value) {
-    const stringCmd = value.trim().split(' ')
-    return stringCmd
+  return String(value || '')
+    .trim()
+    .split(' ');
 }
 
 export function splitCommand(value) {
-    const sysCmd = value.split(' ')[0].substr(1);
-    const sysCmdArgs = value.split(' ').slice(1).join(' ');
-    return {
-        sysCmd: sysCmd,
-        sysCmdArgs: sysCmdArgs
-    }
+  const parts = String(value || '').split(' ');
+  const sysCmd = (parts[0] || '').substr(1);
+  const sysCmdArgs = parts.slice(1).join(' ');
+  return { sysCmd, sysCmdArgs };
 }
 
 export function echoHtml(html) {
-    if (!html) return
-    $('.terminal').trigger('output-html', html)
+  if (!html) return;
+  // Эмуляция: $('.terminal').trigger('output-html', html)
+  document.querySelectorAll('.terminal').forEach(termEl => {
+    termEl.dispatchEvent(new CustomEvent('output-html', { detail: html }));
+  });
 }
 
-export default  Commands
+export default Commands;

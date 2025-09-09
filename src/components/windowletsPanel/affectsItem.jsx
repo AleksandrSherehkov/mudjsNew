@@ -47,7 +47,7 @@ function AffectBlock(props) {
   );
 }
 
-export default function AffectsItem(prompt) {
+export default function AffectsItem(props) {
   return (
     <PanelItem title="Воздействия на тебе">
       <div
@@ -55,54 +55,54 @@ export default function AffectsItem(prompt) {
         className="flexcontainer-row flexcontainer-wrap "
         data-hint="hint-affects"
       >
-        {prompt.pro && prompt.pro !== 'none' && (
+        {props.pro && props.pro !== 'none' && (
           <AffectBlock
-            block={prompt.pro}
+            block={props.pro}
             blockName="Защита"
             bitNames={Pnames}
             color="2"
             type="protect"
           />
         )}
-        {prompt.det && prompt.det !== 'none' && (
+        {props.det && props.det !== 'none' && (
           <AffectBlock
-            block={prompt.det}
+            block={props.det}
             blockName="Обнар"
             bitNames={Dnames}
             color="2"
             type="detects"
           />
         )}
-        {prompt.trv && prompt.trv !== 'none' && (
+        {props.trv && props.trv !== 'none' && (
           <AffectBlock
-            block={prompt.trv}
+            block={props.trv}
             blockName="Трансп"
             bitNames={Tnames}
             color="2"
             type="travel"
           />
         )}
-        {prompt.enh && prompt.enh !== 'none' && (
+        {props.enh && props.enh !== 'none' && (
           <AffectBlock
-            block={prompt.enh}
+            block={props.enh}
             blockName="Усилен"
             bitNames={Enames}
             color="2"
             type="enhance"
           />
         )}
-        {prompt.mal && prompt.mal !== 'none' && (
+        {props.mal && props.mal !== 'none' && (
           <AffectBlock
-            block={prompt.mal}
+            block={props.mal}
             blockName="Отриц"
             bitNames={Mnames}
             color="1"
             type="malad"
           />
         )}
-        {prompt.cln && prompt.cln !== 'none' && (
+        {props.cln && props.cln !== 'none' && (
           <AffectBlock
-            block={prompt.cln}
+            block={props.cln}
             blockName="Клан"
             bitNames={Cnames}
             color="2"

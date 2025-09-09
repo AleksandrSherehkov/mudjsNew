@@ -1,28 +1,24 @@
-document.addEventListener('DOMContentLoaded', function () {
+import $ from 'jquery';
+import 'devbridge-autocomplete';
+
+$(document).ready(function () {
   // Обработка клика по элементам с data-hint
-  document.body.addEventListener('click', function (e) {
-    const target = e.target.closest('[data-hint]');
-    if (target) {
-      const modalElement = document.getElementById(target.dataset.hint);
-      if (modalElement && window.bootstrap && window.bootstrap.Modal) {
-        const modal = new window.bootstrap.Modal(modalElement);
-        modal.toggle();
-      }
-      e.stopPropagation();
-      e.preventDefault();
+  $('body').on('click', '[data-hint]', function (e) {
+    const modalElement = document.getElementById($(this).data('hint'));
+    if (modalElement && window.bootstrap && window.bootstrap.Modal) {
+      const modal = new window.bootstrap.Modal(modalElement);
+      modal.toggle();
     }
+    e.stopPropagation();
+    e.preventDefault();
   });
 
   // Слушаем события от сервера и обновляем глобальный mudprompt
-  const rpcEvents = document.getElementById('rpc-events');
-  if (rpcEvents) {
-    rpcEvents.addEventListener('rpc-prompt', function (e) {
-      const b = e.detail?.[0] || e.detail;
-      if (window.mudprompt === undefined) {
-        window.mudprompt = b;
-      } else {
-        Object.assign(window.mudprompt, b);
-      }
-    });
-  }
+  $('#rpc-events').on('rpc-prompt', function (e, b) {
+    if (window.mudprompt === undefined) {
+      window.mudprompt = b;
+    } else {
+      $.extend(window.mudprompt, b);
+    }
+  });
 });

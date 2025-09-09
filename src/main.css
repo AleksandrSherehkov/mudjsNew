@@ -245,20 +245,11 @@ td.v-bottom {
   overflow: auto;
   cursor: pointer;
   color: #d3d7cf;
-  position: absolute;
-  z-index: 1000;
-  max-height: 200px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 .autocomplete-suggestion {
   padding: 2px 5px;
   overflow: auto;
   border-bottom: 0px solid;
-}
-.autocomplete-suggestion:hover,
-.autocomplete-suggestion-selected {
-  background: #bb86fc;
-  color: #121212;
 }
 .autocomplete-selected {
   background: #bb86fc;

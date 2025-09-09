@@ -1,13 +1,10 @@
-
+import $ from 'jquery';
 import React, { useState, useEffect, useRef } from 'react';
 
 import { send } from '../../websock';
 
 const echo = txt => {
-  const terminal = document.querySelector('.terminal');
-  if (terminal) {
-    terminal.dispatchEvent(new CustomEvent('output', { detail: [txt] }));
-  }
+  $('.terminal').trigger('output', [txt]);
 };
 
 const useTypeahead = () => {
@@ -18,14 +15,13 @@ const useTypeahead = () => {
   });
 
   useEffect(() => {
-    fetch('/help/typeahead.json')
-      .then(response => response.json())
+    $.get('/help/typeahead.json', undefined, 'json')
       .then(data => {
         // Success:
         console.log('Retrieved', data.length, 'help topics.');
 
         // Convert retrieved JSON to format accepted by autocomplete plugin.
-        const topics = data.map(dataItem => ({
+        const topics = $.map(data, dataItem => ({
           value: dataItem.n.toLowerCase(),
           data: { link: dataItem.l, title: dataItem.t, id: dataItem.id },
         }));
@@ -48,47 +44,44 @@ export default function Help() {
   const { loading, topics, error } = useTypeahead();
 
   const showTopic = function (topic) {
-    const inputbox = ref.current;
+    const inputbox = $(ref.current);
     var cmd = 'справка ' + topic;
     echo(cmd + '\n');
     send(cmd);
-    if (inputbox) inputbox.value = '';
-    const mainInput = document.querySelector('#input input');
-    if (mainInput) mainInput.focus();
+    inputbox.val('');
+    $('#input input').focus();
   };
 
   // TODO: use React autocomplete
   useEffect(() => {
-    const inputbox = ref.current;
-    if (!inputbox) return;
+    const inputbox = $(ref.current);
 
     if (error) {
       // Default to just invoke 'help topic' on Enter.
-      const handleKeypress = function (e) {
+      inputbox.on('keypress', function (e) {
         if (e.keyCode === 13) {
-          showTopic(inputbox.value);
+          showTopic($(this).val());
         }
-      };
-      inputbox.addEventListener('keypress', handleKeypress);
-      return () => inputbox.removeEventListener('keypress', handleKeypress);
+      });
     } else {
-      // Simplified autocomplete functionality
-      const handleKeypress = function (e) {
-        if (e.keyCode === 13) {
-          const value = inputbox.value.toLowerCase();
-          const match = topics.find(topic => 
-            topic.value.includes(value) || topic.data.title.toLowerCase().includes(value)
-          );
-          if (match) {
-            showTopic(match.data.id);
-          } else {
-            showTopic(value);
-          }
-        }
-      };
-      inputbox.addEventListener('keypress', handleKeypress);
-      return () => inputbox.removeEventListener('keypress', handleKeypress);
+      // Initialize autocomplete drop-down.
+      inputbox.autocomplete({
+        lookup: topics,
+        lookupLimit: 10,
+        autoSelectFirst: true,
+        showNoSuggestionNotice: true,
+        noSuggestionNotice: 'Справка не найдена',
+        formatResult: function (suggestion, currentValue) {
+          let s = {};
+          s.data = suggestion.data;
+          s.value = '[' + currentValue + '] ' + suggestion.data.title;
+          return $.Autocomplete.defaults.formatResult(s, currentValue);
+        },
+        onSelect: suggestion => showTopic(suggestion.data.id),
+      });
     }
+
+    return () => inputbox.off();
   }, [loading, topics, error]);
 
   return (

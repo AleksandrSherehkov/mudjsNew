@@ -1,4 +1,6 @@
+import $ from 'jquery';
 import loader from '@monaco-editor/loader';
+import 'devbridge-autocomplete';
 import { rpccmd } from './websock';
 import { setupSpeechRecognition } from './speech';
 
@@ -37,146 +39,31 @@ function getResponsiveEditorParams() {
   };
 }
 
-// Simple autocomplete replacement without jQuery dependency
-function createAutocomplete(input, options) {
-  let suggestionContainer = null;
-  let currentSuggestions = [];
-  let selectedIndex = -1;
-
-  function showSuggestions(suggestions) {
-    hideSuggestions();
-    
-    if (suggestions.length === 0) {
-      if (options.showNoSuggestionNotice) {
-        const notice = document.createElement('div');
-        notice.className = 'autocomplete-suggestions';
-        notice.innerHTML = `<div class="autocomplete-suggestion">${options.noSuggestionNotice}</div>`;
-        input.parentNode.appendChild(notice);
-        suggestionContainer = notice;
-      }
-      return;
-    }
-
-    suggestionContainer = document.createElement('div');
-    suggestionContainer.className = 'autocomplete-suggestions';
-    
-    suggestions.forEach((suggestion, index) => {
-      const item = document.createElement('div');
-      item.className = 'autocomplete-suggestion';
-      item.textContent = suggestion.value;
-      item.dataset.index = index;
-      
-      item.addEventListener('click', () => {
-        input.value = suggestion.value;
-        hideSuggestions();
-        if (options.onSelect) options.onSelect();
-      });
-      
-      suggestionContainer.appendChild(item);
-    });
-    
-    input.parentNode.appendChild(suggestionContainer);
-    currentSuggestions = suggestions;
-  }
-
-  function hideSuggestions() {
-    if (suggestionContainer) {
-      suggestionContainer.remove();
-      suggestionContainer = null;
-    }
-    currentSuggestions = [];
-    selectedIndex = -1;
-  }
-
-  function selectSuggestion(index) {
-    const items = suggestionContainer?.querySelectorAll('.autocomplete-suggestion');
-    if (!items) return;
-    
-    items.forEach(item => item.classList.remove('autocomplete-suggestion-selected'));
-    if (index >= 0 && index < items.length) {
-      items[index].classList.add('autocomplete-suggestion-selected');
-      selectedIndex = index;
-    }
-  }
-
-  input.addEventListener('input', (e) => {
-    const value = e.target.value.toLowerCase();
-    if (value.length < 1) {
-      hideSuggestions();
-      return;
-    }
-
-    const filtered = options.lookup.filter(item => 
-      item.value.toLowerCase().includes(value)
-    ).slice(0, options.lookupLimit || 10);
-    
-    showSuggestions(filtered);
-    if (options.autoSelectFirst && filtered.length > 0) {
-      selectSuggestion(0);
-    }
-  });
-
-  input.addEventListener('keydown', (e) => {
-    if (!suggestionContainer) return;
-    
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        selectSuggestion(Math.min(selectedIndex + 1, currentSuggestions.length - 1));
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        selectSuggestion(Math.max(selectedIndex - 1, 0));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (selectedIndex >= 0 && currentSuggestions[selectedIndex]) {
-          input.value = currentSuggestions[selectedIndex].value;
-          hideSuggestions();
-          if (options.onSelect) options.onSelect();
-        }
-        break;
-      case 'Escape':
-        hideSuggestions();
-        break;
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!input.contains(e.target) && !suggestionContainer?.contains(e.target)) {
-      hideSuggestions();
-    }
-  });
-}
-
 function initHelpIds() {
-  const heditLookup = document.querySelector('#textedit-modal input');
-  if (!heditLookup) return;
+  const heditLookup = $('#textedit-modal input');
 
-  fetch('hedit.json')
-    .then(response => response.json())
-    .then(data => {
-      const topics = data.map(item => ({
+  $.get(
+    'hedit.json',
+    function (data) {
+      const topics = $.map(data, item => ({
         value: `${item.id}: ${item.kw.toLowerCase()}`,
         data: item.id,
       }));
 
-      createAutocomplete(heditLookup, {
+      heditLookup.autocomplete({
         lookup: topics,
         lookupLimit: 20,
         autoSelectFirst: true,
         showNoSuggestionNotice: true,
         noSuggestionNotice: 'Справка не найдена',
-        onSelect: () => {
-          const editor = document.querySelector('#textedit-modal .editor');
-          if (editor) editor.focus();
-        },
+        onSelect: () => $('#textedit-modal .editor').focus(),
       });
-    })
-    .catch(() => {
-      console.log('Cannot retrieve help ids.');
-      heditLookup.style.display = 'none';
-    });
+    },
+    'json'
+  ).fail(() => {
+    console.log('Cannot retrieve help ids.');
+    $('#textedit-modal input').hide();
+  });
 }
 
 function initVoiceRecognition(monaco) {
@@ -195,11 +82,9 @@ function initVoiceRecognition(monaco) {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+$(document).ready(() => {
   loader.init().then(monaco => {
-    const editorElement = document.querySelector('#textedit-modal .editor');
-    if (!editorElement) return;
-
+    const editorElement = $('#textedit-modal .editor')[0];
     const { fontSize, lineHeight, padding } = getResponsiveEditorParams();
 
     monacoEditor = monaco.editor.create(editorElement, {
@@ -230,12 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initVoiceRecognition(monacoEditor);
 
     // 🔄 Перезапуск речи при смене языка
-    const voiceLang = document.querySelector('#voice-lang');
-    if (voiceLang) {
-      voiceLang.addEventListener('change', () => {
-        initVoiceRecognition(monacoEditor);
-      });
-    }
+    document.querySelector('#voice-lang').addEventListener('change', () => {
+      initVoiceRecognition(monacoEditor);
+    });
 
     monacoEditor.onDidChangeModelContent(() => {
       const model = monacoEditor.getModel();
@@ -253,52 +135,35 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    const rpcEvents = document.getElementById('rpc-events');
-    if (rpcEvents) {
-      rpcEvents.addEventListener('rpc-editor_open', (e) => {
-        const text = e.detail?.[0];
-        const arg = e.detail?.[1];
-        
-        monacoEditor.setValue(text || '');
-        
-        // Use Bootstrap 5 native Modal API instead of jQuery
-        const modalElement = document.getElementById('textedit-modal');
-        const modal = new window.bootstrap.Modal(modalElement);
-        modal.show();
+    $('#rpc-events').on('rpc-editor_open', (e, text, arg) => {
+      monacoEditor.setValue(text || '');
+      
+      // Use Bootstrap 5 native Modal API instead of jQuery
+      const modalElement = document.getElementById('textedit-modal');
+      const modal = new window.bootstrap.Modal(modalElement);
+      modal.show();
 
-        const modalInput = document.querySelector('#textedit-modal input');
-        if (arg === 'help') {
-          if (modalInput) modalInput.style.display = 'block';
-          initHelpIds();
-        } else {
-          if (modalInput) modalInput.style.display = 'none';
-        }
+      if (arg === 'help') {
+        $('#textedit-modal input').show();
+        initHelpIds();
+      } else {
+        $('#textedit-modal input').hide();
+      }
 
-        // Remove any existing event listeners
-        const saveButton = document.querySelector('#textedit-modal .save-button');
-        const cancelButton = document.querySelector('#textedit-modal .cancel-button');
-        
-        if (saveButton) {
-          const newSaveButton = saveButton.cloneNode(true);
-          saveButton.parentNode.replaceChild(newSaveButton, saveButton);
-          
-          newSaveButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            const val = monacoEditor.getValue();
-            rpccmd('editor_save', val);
-          });
-        }
+      $('#textedit-modal .save-button')
+        .off()
+        .click(e => {
+          e.preventDefault();
+          const val = monacoEditor.getValue();
+          rpccmd('editor_save', val);
+        });
 
-        if (cancelButton) {
-          const newCancelButton = cancelButton.cloneNode(true);
-          cancelButton.parentNode.replaceChild(newCancelButton, cancelButton);
-          
-          newCancelButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            modal.hide();
-          });
-        }
-      });
-    }
+      $('#textedit-modal .cancel-button')
+        .off()
+        .click(e => {
+          e.preventDefault();
+          modal.hide();
+        });
+    });
   });
 });

@@ -96,10 +96,10 @@ function terminalInit(wrap) {
     const span = $('<span/>');
     span.html(ansi2html(txt));
 
-    manip.colorParseAndReplace(span[0]);
-    manip.manipParseAndReplace(span[0]);
+    manip.colorParseAndReplace(span);
+    manip.manipParseAndReplace(span);
 
-    terminal[0].dispatchEvent(new CustomEvent('output-html', { detail: span.html() }));
+    terminal.trigger('output-html', [span.html()]);
   });
 
   // this may not be called from outside of terminal logic.
@@ -116,7 +116,7 @@ function terminalInit(wrap) {
         if (autoScrollEnabled) {
           append($chunk);
         } else {
-          wrap[0].dispatchEvent(new CustomEvent('bump-unread'));
+          wrap.trigger('bump-unread', []);
         }
 
         lastChunkId = id;
@@ -127,12 +127,9 @@ function terminalInit(wrap) {
         const lines = $chunkCopy.text().replace(/\xa0/g, ' ').split('\n');
         lines.forEach(line => {
           processTriggers(line);
-          const triggers = document.querySelectorAll('.trigger');
-          triggers.forEach(trigger => {
-            trigger.dispatchEvent(new CustomEvent('text', { detail: '' + line }));
-          });
+          $('.trigger').trigger('text', ['' + line]);
         });
-        // lines.forEach(line => $('.trigger').dispatchEvent(new CustomEvent('text', [''+line]));
+        // lines.forEach(line => $('.trigger').trigger('text', [''+line]));
       });
   });
 
@@ -191,7 +188,7 @@ function terminalInit(wrap) {
       if (lstId === lastChunkId) {
         // Check if we can reset the unread counter and return
         if (atBottom()) {
-          wrap[0].dispatchEvent(new CustomEvent('reset-unread'));
+          wrap.trigger('reset-unread', []);
         }
 
         return;
@@ -210,7 +207,7 @@ function terminalInit(wrap) {
   });
 
   scrollToBottom().then(() => {
-    const echo = html => terminal[0].dispatchEvent(new CustomEvent('output-html', { detail: html }));
+    const echo = html => terminal.trigger('output-html', [html]);
 
     echo('<hr>');
     echo(
@@ -265,12 +262,7 @@ const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
   useImperativeHandle(
     ref,
     () => ({
-      scrollToBottom: () => {
-        const wrapElement = wrap.current;
-        if (wrapElement) {
-          wrapElement.dispatchEvent(new CustomEvent('scroll-to-bottom'));
-        }
-      },
+      scrollToBottom: () => $(wrap.current).trigger('scroll-to-bottom', []),
     }),
     [wrap]
   );

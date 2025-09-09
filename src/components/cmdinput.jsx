@@ -251,9 +251,10 @@ const CmdInput = () => {
     const lines = userCommand.split('\n');
     lines.forEach(line => {
       echo(line);
-      document.querySelectorAll('.trigger').forEach(triggerEl => {
-        triggerEl.dispatchEvent(new CustomEvent('input', { detail: line }));
-      });
+      const triggersElem = document.getElementById('triggers');
+      if (triggersElem) {
+        triggersElem.dispatchEvent(new CustomEvent('input', { detail: line }));
+      }
     });
   };
 

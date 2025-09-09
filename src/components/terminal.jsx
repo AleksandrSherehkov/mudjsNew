@@ -15,6 +15,7 @@ const bytesToLoad = 100000;
 const scrollThreshold = 1000;
 const maxBytesOnScreen = 1000000;
 
+let isHistoryBannerShown = false;
 let firstChunkId = -1; // id самого первого чанка в истории (когда долистали до верха)
 let lastChunkId = -1; // id последнего отображённого чанка
 let scrolling = false;
@@ -206,6 +207,9 @@ function terminalInit(container) {
   // Первая загрузка истории и приветственный баннер
   return scrollToBottom()
     .then(() => {
+      if (isHistoryBannerShown) return;
+      isHistoryBannerShown = true;
+      
       const echo = html =>
         terminalEl.dispatchEvent(
           new CustomEvent('output-html', { detail: html })
@@ -232,13 +236,23 @@ function terminalInit(container) {
 
 const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
   const wrapRef = useRef(null);
+  const cleanupRef = useRef(() => {});
+  const isInitialized = useRef(false);
 
   useEffect(() => {
-    if (!wrapRef.current) return;
-    let cleanupInner = () => {};
+    if (!wrapRef.current || isInitialized.current) return;
+    
+    isInitialized.current = true;
+    let isCancelled = false;
+    
     const setup = async () => {
+      if (isCancelled) return;
       const cleanup = await terminalInit(wrapRef.current);
-      cleanupInner = cleanup;
+      if (isCancelled) {
+        cleanup && cleanup();
+        return;
+      }
+      cleanupRef.current = cleanup || (() => {});
     };
     setup();
 
@@ -259,7 +273,9 @@ const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
     document.addEventListener('change', enableAutoScroll);
 
     return () => {
-      cleanupInner && cleanupInner();
+      isCancelled = true;
+      isInitialized.current = false;
+      cleanupRef.current && cleanupRef.current();
       wrapElem.removeEventListener('bump-unread', handleBump);
       wrapElem.removeEventListener('reset-unread', handleReset);
       document.removeEventListener('click', enableAutoScroll);

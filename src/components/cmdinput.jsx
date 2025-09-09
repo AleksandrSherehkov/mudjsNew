@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MicIcon from '@mui/icons-material/Mic';
 import { useSelector } from 'react-redux';
-import $ from 'jquery';
 import { echo } from '../input';
 import { send, connect } from '../websock';
 import { getKeydown } from '../settings';
@@ -25,18 +24,23 @@ const input_history = localStorage.history
 let position = input_history.length;
 let current_cmd = '';
 
-$('body').on('click', '.builtin-cmd', function (e) {
-  const cmd = $(e.currentTarget);
-  const { sysCmd, sysCmdArgs } = splitCommand(cmd.attr('data-action'));
+// Replace jQuery event delegation with native event delegation
+document.body.addEventListener('click', function (e) {
+  const cmd = e.target.closest('.builtin-cmd');
+  if (!cmd) return;
+  
+  const { sysCmd, sysCmdArgs } = splitCommand(cmd.getAttribute('data-action'));
   const command = getSystemCmd(sysCmd);
-  echo(cmd.attr('data-echo'));
+  echo(cmd.getAttribute('data-echo'));
   if (!command) return errCmdDoesNotExist;
   Commands[command]['payload'](sysCmdArgs);
 });
 
 const scrollPage = dir => {
-  const wrap = $('.terminal-wrap');
-  wrap.scrollTop(wrap.scrollTop() + wrap.height() * dir);
+  const wrap = document.querySelector('.terminal-wrap');
+  if (wrap) {
+    wrap.scrollTop += wrap.clientHeight * dir;
+  }
 };
 
 const CmdInput = () => {
@@ -78,13 +82,16 @@ const CmdInput = () => {
   useEffect(() => {
     const handleKey = e => {
       if (e.which === 9) return;
-      const input = $('#input input');
+      const input = document.querySelector('#input input');
       // Replace jQuery modal check with native Bootstrap 5 check
       if (document.body.classList.contains('modal-open')) return;
 
       if (!sendHotKeyCmd(e)) {
         if (e.ctrlKey || e.altKey) return;
-        if (input.is(':focus') || $('#help input').is(':focus')) return;
+        if (
+          (input && input === document.activeElement) ||
+          (document.querySelector('#help input') && document.querySelector('#help input') === document.activeElement)
+        ) return;
 
         if (document.getElementById('inputBox')) {
           textInput.current.focus();
@@ -242,9 +249,11 @@ const CmdInput = () => {
     }
 
     const lines = userCommand.split('\n');
-    $(lines).each(function () {
-      echo(this);
-      $('.trigger').trigger('input', [this]);
+    lines.forEach(line => {
+      echo(line);
+      document.querySelectorAll('.trigger').forEach(triggerEl => {
+        triggerEl.dispatchEvent(new CustomEvent('input', { detail: line }));
+      });
     });
   };
 

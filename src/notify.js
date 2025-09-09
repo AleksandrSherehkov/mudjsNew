@@ -1,28 +1,49 @@
-import $ from 'jquery';
-
 let notificationPermission = Notification.permission;
+let clickHandlerAttached = false;
 
-// Один раз реєструємо обробник після першого кліку
-$(document).one('click', () => {
-  if ('Notification' in window && notificationPermission !== 'granted') {
-    Notification.requestPermission().then(perm => {
-      notificationPermission = perm;
-    });
-  }
-});
+// Один раз регистрируем обработчик после первого клика
+function attachClickHandler() {
+  if (clickHandlerAttached) return;
+  clickHandlerAttached = true;
+  
+  document.addEventListener('click', () => {
+    if ('Notification' in window && notificationPermission !== 'granted') {
+      Notification.requestPermission().then(perm => {
+        notificationPermission = perm;
+      });
+    }
+  }, { once: true });
+}
 
-// Реєстрація події при готовності документа
-$(document).ready(function () {
+// Регистрация события при готовности документа
+function setupNotifications() {
   if ('Notification' in window && notificationPermission === 'granted') {
-    $('#rpc-events').on('rpc-notify', function (e, text) {
-      if (document.hidden) {
-        new Notification(text);
-      }
-    });
+    const rpcEvents = document.getElementById('rpc-events');
+    if (rpcEvents) {
+      rpcEvents.addEventListener('rpc-notify', function (e) {
+        if (document.hidden) {
+          new Notification(e.detail);
+        }
+      });
+    }
   }
-});
+}
 
-// Функція виклику повідомлення
+// Инициализация
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    attachClickHandler();
+    setupNotifications();
+  });
+} else {
+  attachClickHandler();
+  setupNotifications();
+}
+
+// Функция вызова уведомления
 export default function notify(txt) {
-  $('#rpc-events').trigger('rpc-notify', [txt]);
+  const rpcEvents = document.getElementById('rpc-events');
+  if (rpcEvents) {
+    rpcEvents.dispatchEvent(new CustomEvent('rpc-notify', { detail: txt }));
+  }
 }

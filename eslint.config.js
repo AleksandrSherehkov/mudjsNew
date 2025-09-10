@@ -9,7 +9,14 @@ export default [
     files: ['**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+        // MUD client global functions
+        send: 'readonly',
+        echo: 'readonly', 
+        notify: 'readonly',
+        mudprompt: 'readonly'
+      },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },

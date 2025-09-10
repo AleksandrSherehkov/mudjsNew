@@ -172,6 +172,7 @@
   function scan(where) {
     safeSend('scan ' + where);
   }
+  // eslint-disable-next-line no-unused-vars
   function shoot(where) {
     // примеры:
     // safeSend('стрелять ' + where + ' ' + victim);

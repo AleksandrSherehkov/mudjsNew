@@ -4,7 +4,7 @@ import Telnet from './telnet';
 const PROTO_VERSION = 'DreamLand Web Client/2.1';
 
 let wsUrl = 'wss://dreamland.rocks/dreamland';
-let ws = null;
+let ws;
 
 if (globalThis.location.hash === '#build') {
   wsUrl = 'wss://dreamland.rocks/buildplot';
@@ -14,7 +14,12 @@ if (globalThis.location.hash === '#build') {
 
 function rpccmd(cmd, ...args) {
   if (ws) {
-    ws.send(JSON.stringify({ command: cmd, args }));
+    ws.send(
+      JSON.stringify({
+        command: cmd,
+        args: args,
+      })
+    );
   }
 }
 
@@ -22,98 +27,82 @@ function send(text) {
   rpccmd('console_in', text + '\n');
 }
 
-function processOutput(s) {
-  document.querySelectorAll('.terminal').forEach(termEl => {
-    termEl.dispatchEvent(new CustomEvent('output', { detail: s }));
-  });
+function process(s) {
+  const terminal = document.querySelector('.terminal');
+  if (terminal) {
+    terminal.dispatchEvent(new CustomEvent('output', { detail: s }));
+  }
 }
 
-/* =========================
- * Telnet + RPC event wiring
- * ========================= */
-const telnet = new Telnet();
-telnet.handleRaw = s => {
-  processOutput(s);
-};
+// attach default RPC handlers
+document.addEventListener('DOMContentLoaded', function () {
+  const telnet = new Telnet();
 
-function attachRpcHandlers() {
-  const rpc = document.getElementById('rpc-events');
-  if (!rpc) return;
+  telnet.handleRaw = function (s) {
+    process(s);
+  };
 
-  // console_out: первый аргумент detail[0]
-  rpc.addEventListener('rpc-console_out', e => {
-    const payload = Array.isArray(e.detail) ? e.detail[0] : e.detail;
-    telnet.process(payload);
-  });
+  const rpcEvents = document.getElementById('rpc-events');
+  if (rpcEvents) {
+    rpcEvents.addEventListener('rpc-console_out', function (e) {
+      telnet.process(e.detail[0]);
+    });
 
-  // alert: первый аргумент detail[0]
-  rpc.addEventListener('rpc-alert', e => {
-    const msg = Array.isArray(e.detail) ? e.detail[0] : e.detail;
-    if (msg != null) alert(String(msg));
-  });
+    rpcEvents.addEventListener('rpc-alert', function (e) {
+      alert(e.detail[0]);
+    });
 
-  // version: [version, nonce]
-  rpc.addEventListener('rpc-version', e => {
-    const version = e.detail?.[0];
-    const nonce = e.detail?.[1];
-    console.log('rpc-version', version, nonce);
+    rpcEvents.addEventListener('rpc-version', function (e) {
+      const [version, nonce] = e.detail;
+      console.log('rpc-version', version, nonce);
 
-    if (version !== PROTO_VERSION) {
-      processOutput(
-        `\n\u001b[1;31mВерсия клиента (${PROTO_VERSION}) не совпадает с версией сервера (${version}).\n` +
-          'Обнови страницу, если не поможет - почисти кеши.\u001b[0;37m\n'
-      );
-      if (ws) ws.close();
-      return;
-    }
-    if (ws) ws.nonce = nonce;
-  });
-}
+      if (version !== PROTO_VERSION) {
+        process(
+          '\n\u001b[1;31mВерсия клиента (' +
+            PROTO_VERSION +
+            ') не совпадает с версией сервера (' +
+            version +
+            ').\n' +
+            'Обнови страницу, если не поможет - почисти кеши.\u001b[0;37m\n'
+        );
+        ws.close();
+      }
 
-// Подключаем обработчики, когда DOM готов
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', attachRpcHandlers, {
-    once: true,
-  });
-} else {
-  attachRpcHandlers();
-}
+      ws.nonce = nonce;
+    });
+  }
+});
 
-/* =========================
- * WebSocket lifecycle
- * ========================= */
 function connect() {
   ws = new WebSocket(wsUrl, ['binary']);
+
   ws.binaryType = 'arraybuffer';
 
-  ws.onmessage = e => {
+  ws.onmessage = function (e) {
     let b = new Uint8Array(e.data);
-    // Декодирование, совместимое с оригиналом
     b = String.fromCharCode.apply(null, b);
     b = decodeURIComponent(escape(b));
-    const msg = JSON.parse(b);
-
-    const rpc = document.getElementById('rpc-events');
-    if (rpc) {
-      const eventName = 'rpc-' + msg.command;
-      const detailData = msg.args || [];
-      rpc.dispatchEvent(new CustomEvent(eventName, { detail: detailData }));
+    b = JSON.parse(b);
+    
+    const rpcEvents = document.getElementById('rpc-events');
+    if (rpcEvents) {
+      rpcEvents.dispatchEvent(new CustomEvent('rpc-' + b.command, { detail: b.args }));
     }
   };
 
-  ws.onopen = () => {
+  ws.onopen = function () {
     send('1');
   };
 
-  ws.onclose = () => {
-    processOutput(
+  ws.onclose = function () {
+    process(
       '\u001b[1;31m#################### DISCONNECTED ####################\u001b[0;37m\n'
     );
     ws = null;
     store.dispatch(onDisconnected());
   };
 
-  processOutput('Connecting....\n');
+  process('Connecting....\n');
   store.dispatch(onConnected());
 }
 

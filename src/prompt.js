@@ -1,26 +1,26 @@
-document.addEventListener('DOMContentLoaded', () => {
-  // Клик по любому элементу с атрибутом data-hint → открыть/закрыть соответствующий Bootstrap-модал
-  document.body.addEventListener('click', e => {
-    const hintElem = e.target.closest('[data-hint]');
-    if (!hintElem) return;
+import 'devbridge-autocomplete';
 
-    const modalId = hintElem.getAttribute('data-hint');
-    const modalElement = document.getElementById(modalId);
-    if (modalElement && window.bootstrap?.Modal) {
-      new window.bootstrap.Modal(modalElement).toggle();
+document.addEventListener('DOMContentLoaded', function () {
+  // Обработка клика по элементам с data-hint
+  document.body.addEventListener('click', function (e) {
+    if (e.target.hasAttribute('data-hint')) {
+      const modalElement = document.getElementById(e.target.getAttribute('data-hint'));
+      if (modalElement && window.bootstrap && window.bootstrap.Modal) {
+        const modal = new window.bootstrap.Modal(modalElement);
+        modal.toggle();
+      }
+      e.stopPropagation();
+      e.preventDefault();
     }
-
-    e.stopPropagation();
-    e.preventDefault();
   });
 
-  // Обновление глобального объекта prompt из RPC-события
+  // Слушаем события от сервера и обновляем глобальный mudprompt
   const rpcEvents = document.getElementById('rpc-events');
   if (rpcEvents) {
-    rpcEvents.addEventListener('rpc-prompt', event => {
-      const b = event?.detail || {};
+    rpcEvents.addEventListener('rpc-prompt', function (e) {
+      const b = e.detail[0];
       if (window.mudprompt === undefined) {
-        window.mudprompt = { ...b };
+        window.mudprompt = b;
       } else {
         Object.assign(window.mudprompt, b);
       }

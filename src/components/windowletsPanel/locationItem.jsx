@@ -145,8 +145,8 @@ const SectorRow = ({ n }) => {
 /**
  * Render player location windowlet.
  */
-export default function LocationItem(props) {
-  const { zone, room, exits, sect } = props;
+export default function LocationItem(prompt) {
+  const { zone, room, exits, sect } = prompt;
 
   return (
     <PanelItem title="Твое местоположение">

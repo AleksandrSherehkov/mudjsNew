@@ -1,7 +1,6 @@
 import * as bootstrap from 'bootstrap';
-
+// Expose Bootstrap to global scope for use in other modules
 window.bootstrap = bootstrap;
-
 import PropertiesStorage from './properties';
 import { connect } from './websock';
 import lastLocation from './location';
@@ -20,116 +19,134 @@ import './main.css';
 const sessionId = getSessionId();
 let propertiesStorage = PropertiesStorage;
 
-// Предупреждение при попытке закрыть вкладку/страницу
-window.addEventListener('beforeunload', e => {
-  e.preventDefault();
-  // Эквивалент `return 'leaving already?'` для современных браузеров
-  e.returnValue = 'leaving already?';
+window.addEventListener('beforeunload', function () {
+  return 'leaving already?';
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Кнопка "Логи": выгрузка логов и скачивание
-  const logsBtn = document.getElementById('logs-button');
-  if (logsBtn) {
-    logsBtn.addEventListener('click', e => {
+document.addEventListener('DOMContentLoaded', function () {
+  const logsButton = document.getElementById('logs-button');
+  if (logsButton) {
+    logsButton.addEventListener('click', function (e) {
+      var logs = [];
+
       e.preventDefault();
-      let logs = [];
+
       historydb
-        .then(db =>
-          db.load(null, false, 100000000, (key, value) => {
+        .then(function (db) {
+          return db.load(null, false, 100000000, function (key, value) {
             logs.push(value);
-          })
-        )
-        .then(() => {
-          const blob = new Blob(logs, { type: 'text/html' });
-          const url = URL.createObjectURL(blob);
+          });
+        })
+        .then(function () {
+          var blobOpts = { type: 'text/html' },
+            blob = new Blob(logs, blobOpts),
+            url = URL.createObjectURL(blob);
+
           logs = null;
 
-          const link = document.createElement('a');
+          // create a link
+          var link = document.createElement('a');
           link.href = url;
           link.download = 'mudjs.log';
 
-          setTimeout(() => {
-            const event = new MouseEvent('click', {
-              bubbles: true,
-              cancelable: true,
-              view: window,
-            });
+          // click on it
+          setTimeout(function () {
+            var event = document.createEvent('MouseEvents');
+            event.initMouseEvent(
+              'click',
+              true,
+              true,
+              window,
+              1,
+              0,
+              0,
+              0,
+              0,
+              false,
+              false,
+              false,
+              false,
+              0,
+              null
+            );
             link.dispatchEvent(event);
           }, 10);
         });
     });
   }
 
-  // Кнопка "Карта": открытие карты текущей области
-  const mapBtn = document.getElementById('map-button');
-  if (mapBtn) {
-    mapBtn.addEventListener('click', e => {
+  const mapButton = document.getElementById('map-button');
+  if (mapButton) {
+    mapButton.addEventListener('click', function (e) {
       e.preventDefault();
-      if (!lastLocation()) return;
-      const basefilename = lastLocation().area.replace(/\.are$/, '');
-      const mapfile = `/maps/${basefilename}.html?sessionId=${sessionId}`;
+
+      if (!lastLocation()) {
+        return;
+      }
+
+      var basefilename = lastLocation().area.replace(/\.are$/, '');
+      var mapfile = '/maps/' + basefilename + '.html?sessionId=' + sessionId;
       window.open(mapfile);
     });
   }
 
-  // Управление размером шрифта терминала
-  const fontDelta = 2;
-  const terminalFontSizeKey = 'terminalFontSize';
-
   connect();
   initTerminalFontSize();
 
+  /*
+   * Handlers for plus-minus buttons to change terminal font size.
+   */
+  var fontDelta = 2;
+  var terminalFontSizeKey = 'terminalFontSize';
+
   function changeFontSize(delta) {
-    const terminalEl = document.querySelector('.terminal');
-    if (!terminalEl) return;
-    const style = window.getComputedStyle(terminalEl).fontSize;
-    const fontSize = parseFloat(style);
-    const next = fontSize + delta;
-    terminalEl.style.fontSize = next + 'px';
-    localStorage.setItem(terminalFontSizeKey, String(next));
-    propertiesStorage[terminalFontSizeKey] = next;
+    var terminal = document.querySelector('.terminal');
+    if (!terminal) return;
+    
+    var currentFontSize = parseFloat(getComputedStyle(terminal).fontSize);
+    var newFontSize = currentFontSize + delta;
+    terminal.style.fontSize = newFontSize + 'px';
+    localStorage.setItem(terminalFontSizeKey, newFontSize);
+    propertiesStorage['terminalFontSize'] = newFontSize;
     localStorage.properties = JSON.stringify(propertiesStorage);
   }
 
   function initTerminalFontSize() {
-    const cache = localStorage.properties
-      ? JSON.parse(localStorage.properties)
+    var cacheFontSize = localStorage.properties
+      ? JSON.parse(localStorage.properties)['terminalFontSize']
       : propertiesStorage;
-    const v =
-      cache && cache[terminalFontSizeKey] != null
-        ? cache[terminalFontSizeKey]
-        : undefined;
-    if (v != null) {
-      const terminalEl = document.querySelector('.terminal');
-      if (terminalEl) terminalEl.style.fontSize = v + 'px';
+    if (cacheFontSize != null) {
+      var terminal = document.querySelector('.terminal');
+      if (terminal) {
+        terminal.style.fontSize = cacheFontSize + 'px';
+      }
     }
   }
 
-  // Кнопки увеличения/уменьшения шрифта:
-  const fontPlusBtn = document.getElementById('font-plus-button');
-  if (fontPlusBtn)
-    fontPlusBtn.addEventListener('click', e => {
+  const fontPlusButton = document.getElementById('font-plus-button');
+  if (fontPlusButton) {
+    fontPlusButton.addEventListener('click', function (e) {
       e.preventDefault();
       changeFontSize(fontDelta);
     });
+  }
 
-  const fontMinusBtn = document.getElementById('font-minus-button');
-  if (fontMinusBtn)
-    fontMinusBtn.addEventListener('click', e => {
+  const fontMinusButton = document.getElementById('font-minus-button');
+  if (fontMinusButton) {
+    fontMinusButton.addEventListener('click', function (e) {
       e.preventDefault();
       changeFontSize(-fontDelta);
     });
+  }
 
-  // Сохранение размеров окон при клике по сплиттерам
-  document.querySelectorAll('.layout-splitter').forEach(splitter => {
-    splitter.addEventListener('click', () => {
+  /* Save layout size */
+  const layoutSplitters = document.querySelectorAll('.layout-splitter');
+  layoutSplitters.forEach(splitter => {
+    splitter.addEventListener('click', function () {
       propertiesStorage['terminalLayoutWidth'] =
-        document.querySelector('.terminal-wrap')?.getBoundingClientRect()
-          .width || 0;
+        document.querySelector('.terminal-wrap')?.getBoundingClientRect().width || 0;
       propertiesStorage['panelLayoutWidth'] =
-        document.querySelector('#panel-wrap')?.getBoundingClientRect().width ||
-        0;
+        document.querySelector('#panel-wrap')?.getBoundingClientRect().width || 0;
       propertiesStorage['mapLayoutWidth'] =
         document.querySelector('#map-wrap')?.getBoundingClientRect().width || 0;
       localStorage.properties = JSON.stringify(propertiesStorage);

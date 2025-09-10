@@ -45,8 +45,8 @@ const WeatherRow = ({ i, m }) => (
 /**
  * Render weather & time windowlet.
  */
-export default function TimeWeatherItem(props) {
-  const { time, date, w: weather } = props;
+export default function TimeWeatherItem(prompt) {
+  const { time, date, w: weather } = prompt;
 
   return (
     <PanelItem title="Погода и время">

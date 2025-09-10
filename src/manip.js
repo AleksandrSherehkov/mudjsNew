@@ -2,295 +2,319 @@ import areasJson from './data/areas.json';
 import { send, ws } from './websock.js';
 import { echo } from './input.js';
 
-// Список допустимых имён областей (без суффикса ".are")
+// Create the list of all possible area file names (without ".are" bit).
 const areas = areasJson.map(a => a.file.replace('.are', ''));
 
-/* =========================
- * Делегирование событий UI
- * ========================= */
+document.addEventListener('DOMContentLoaded', function () {
+  // Control panel buttons.
+  document.body.addEventListener('click', function (e) {
+    if (e.target.classList.contains('btn-ctrl-panel')) {
+      var cmd = e.target.getAttribute('data-action');
+      var conf = e.target.getAttribute('data-confirm');
 
-// Кнопки панели управления
-document.body.addEventListener('click', e => {
-  const btn = e.target.closest('.btn-ctrl-panel');
-  if (!btn) return;
+      if (
+        conf !== undefined &&
+        !window.confirm('Вы действительно хотите ' + conf + '?')
+      )
+        return;
 
-  const cmd = btn.getAttribute('data-action');
-  const conf = btn.getAttribute('data-confirm');
+      echo(cmd);
+      send(cmd);
+    }
+  });
 
-  if (conf !== undefined && conf !== null) {
-    const ok = window.confirm('Вы действительно хотите ' + conf + '?');
-    if (!ok) return;
-  }
-  echo(cmd);
-  send(cmd);
+  // Send command to the server when command hyper link is clicked
+  // e. g. 'read sign' or 'walk trap'.
+  document.body.addEventListener('click', function (e) {
+    if (e.target.classList.contains('manip-cmd')) {
+      var cmd = e.target;
+      echo(cmd.getAttribute('data-echo'));
+      send(cmd.getAttribute('data-action'));
+    }
+  });
+
+  // Send command to the server when individual menu item is clicked.
+  document.body.addEventListener('click', function (e) {
+    if (e.target.classList.contains('manip-item')) {
+      var cmd = e.target;
+      echo(cmd.getAttribute('data-echo'));
+      send(cmd.getAttribute('data-action'));
+    }
+  });
+
+  // Underline current selection when dropdown is shown (Bootstrap 5 event).
+  document.body.addEventListener('show.bs.dropdown', function (e) {
+    if (e.target.classList.contains('dropdown')) {
+      e.relatedTarget.style.textDecoration = 'underline';
+    }
+  });
+
+  // Remove underline when dropdown is hidden (Bootstrap 5 event).
+  document.body.addEventListener('hide.bs.dropdown', function (e) {
+    if (e.target.classList.contains('dropdown')) {
+      e.relatedTarget.removeAttribute('style');
+    }
+  });
 });
 
-// Клик по ссылке-команде: .manip-cmd (например, 'read sign')
-document.body.addEventListener('click', e => {
-  const link = e.target.closest('.manip-cmd');
-  if (!link) return;
-  const echoText = link.getAttribute('data-echo');
-  const action = link.getAttribute('data-action');
-  if (echoText) echo(echoText);
-  if (action) send(action);
-});
-
-// Клик по пункту выпадающего меню: .manip-item
-document.body.addEventListener('click', e => {
-  const item = e.target.closest('.manip-item');
-  if (!item) return;
-  const echoText = item.getAttribute('data-echo');
-  const action = item.getAttribute('data-action');
-  if (echoText) echo(echoText);
-  if (action) send(action);
-});
-
-// Подчёркивание выбранного пункта при открытии/закрытии dropdown (Bootstrap 5)
-document.body.addEventListener('show.bs.dropdown', e => {
-  if (e.relatedTarget) {
-    e.relatedTarget.style.textDecoration = 'underline';
-  }
-});
-document.body.addEventListener('hide.bs.dropdown', e => {
-  if (e.relatedTarget) {
-    e.relatedTarget.style.textDecoration = '';
-  }
-});
-
-/* ===========================================
- * Преобразование спец-тегов/плейсхолдеров
- * =========================================== */
-
-// Заменить цветовые <c c="fgbr"> теги на <span class="fgbr">...</span>
-function colorParseAndReplace(spanEl) {
-  spanEl.querySelectorAll('c').forEach(cElem => {
-    const style = cElem.getAttribute('c');
-    const newSpan = document.createElement('span');
-    while (cElem.firstChild) newSpan.appendChild(cElem.firstChild);
-    if (style) newSpan.classList.add(style);
-    cElem.replaceWith(newSpan);
+// Replace colour "<c c='fgbr'/>" tags coming from the server with spans.
+function colorParseAndReplace(element) {
+  const cElements = element.querySelectorAll('c');
+  cElements.forEach(function (cEl) {
+    var style = cEl.getAttribute('c');
+    var span = document.createElement('span');
+    span.className = style;
+    // Move all child nodes from c element to span
+    while (cEl.firstChild) {
+      span.appendChild(cEl.firstChild);
+    }
+    cEl.parentNode.replaceChild(span, cEl);
   });
 }
 
-/**
- * Преобразовать управляющие плейсхолдеры/теги в кликабельные элементы
- * spanEl — DOM-элемент-контейнер (бывший jQuery span)
- */
-function manipParseAndReplace(spanEl) {
-  // 1) Строковые замены плейсхолдеров [map], [read], [cmd]
-  let html = spanEl.innerHTML;
+function manipParseAndReplace(element) {
+  // Replace placeholders [map=filename.are] with buttons that open a map,
+  // or with an empty string, if area is not found in the areas.json.
+  var html = element.innerHTML.replace(/\[map=([-0-9a-z_]{1,15})\.are\]/g, function (match, p1) {
+      if (areas.indexOf(p1) === -1) return '';
+      return (
+        '<a class="btn btn-sm btn-outline-info btn-orange" href="https://dreamland.rocks/maps/' +
+        p1 +
+        '.html" target=_blank>открыть карту</a>'
+      );
+    });
 
-  // [map=filename.are] -> кнопка "открыть карту" (если область существует)
-  html = html.replace(/\[map=([-0-9a-z_]{1,15})\.are\]/g, (match, p1) => {
-    if (!areas.includes(p1)) return '';
-    return `<a class="btn btn-sm btn-outline-info btn-orange" href="https://dreamland.rocks/maps/${p1}.html" target="_blank">открыть карту</a>`;
-  });
-
-  // [read=x,see=y] -> (<span class="manip-cmd manip-ed" data-action="read 'x'">y</span>) при условии что y ∈ x (по словам)
+  // Replace extra-description placeholders [read=sign знак,see=sign] with (<span class="manip-cmd manip-ed" data-action="read 'sign знак'">sign</span>).
+  // Returns empty string if 'see' part is not contained within 'read' part.
   html = html.replace(
     /\[read=([^,]{1,100}),see=([^\]]{1,30})]/gi,
-    (match, p1, p2) => {
-      if (!p1.toLowerCase().split(' ').includes(p2.toLowerCase())) return '';
-      return `(<span class="manip-cmd manip-ed" data-action="read '${p1}'" data-echo="читать ${p2}">${p2}</span>)`;
-    }
-  );
-
-  // [cmd=...,see=...,nonce=xxxxxxxx] -> span с data-action/echo, проверяя nonce и сохраняя пробелы/иконки
-  html = html.replace(
-    /\[cmd=([^,]{1,70}),see=([^\]]{1,50}),nonce=(.{8})]/gi,
-    (match, cmd, see, nonce, full) => {
-      // проверка, что команда пришла с сервера
-      if (!ws || nonce !== ws.nonce) {
-        console.log("Invalid nonce in command, someone's up to no good", full);
-        return full;
-      }
-      // подстановка аргумента
-      const action = cmd.replace(/\$1/, see);
-
-      // Разделяем ведущие/хвостовые пробелы и само сообщение
-      const m = see.match(/^( *)(.*[^ ])( *)$/);
-      if (!m) {
-        // нет "несущего" символа — просто отрисуем как есть
-        return `<span class="manip-cmd" data-action="${action}" data-echo="${action}">${see}</span>`;
-      }
-      const [, spaceBegin, msg, spaceEnd] = m;
-
-      // Подменяем msg на иконки, если это спец-слово
-      let label;
-      switch (msg) {
-        case 'edit':
-          label = '<i class="fa fa-edit"></i>';
-          break;
-        case 'save':
-        case 'done':
-          label = '<i class="fa fa-save"></i>';
-          break;
-        case 'cancel':
-          label = '<i class="fa fa-window-close"></i>';
-          break;
-        case 'show':
-          label = '<i class="fa fa-eye"></i>';
-          break;
-        default:
-          label = msg;
-          break;
-      }
-
-      // Окружающие пробелы отдаём nbps, чтобы подчеркивание было только под словом/иконкой
+    function (match, p1, p2) {
+      if (p1.toLowerCase().split(' ').indexOf(p2.toLowerCase()) === -1)
+        return '';
       return (
-        '&nbsp;'.repeat(spaceBegin.length) +
-        `<span class="manip-cmd" data-action="${action}" data-echo="${action}">${label}</span>` +
-        '&nbsp;'.repeat(spaceEnd.length)
+        '(<span class="manip-cmd manip-ed" data-action="read \'' +
+        p1 +
+        '\'" data-echo="читать ' +
+        p2 +
+        '">' +
+        p2 +
+        '</span>)'
       );
     }
   );
 
-  // Применяем промежуточный HTML
-  spanEl.innerHTML = html;
+  // Replace random commands with data-action span.
+  html = html.replace(
+    /\[cmd=([^,]{1,70}),see=([^\]]{1,50}),nonce=(.{8})]/gi,
+    function (match, cmd, see, nonce, string) {
+      // Ensure the command is coming from the server.
+      if (nonce !== ws?.nonce) {
+        console.log(
+          "Invalid nonce in command, someone's up to no good",
+          string
+        );
+        return string;
+      }
 
-  // 2) DOM-преобразования специальных тегов
+      // Replace argument placeholder.
+      var action = cmd.replace(/\$1/, see);
 
-  // <hc>command</hc> -> <span class="manip-cmd" data-action="command" data-echo="command">...</span>
-  spanEl.querySelectorAll('hc').forEach(hc => {
-    const frag = document.createDocumentFragment();
-    while (hc.firstChild) frag.appendChild(hc.firstChild);
-    const action = (frag.textContent || '').trim();
-    const s = document.createElement('span');
-    s.className = 'manip-cmd';
-    s.setAttribute('data-action', action);
-    s.setAttribute('data-echo', action);
-    s.appendChild(frag);
-    hc.replaceWith(s);
+      // The link will only surround the message itself, spaces are not underlined.
+      return see.replace(
+        /^( *)(.*[^ ])( *)$/,
+        function (match, spaceBegin, msg, spaceEnd) {
+          var label;
+          switch (msg) {
+            case 'edit':
+              label = '<i class="fa fa-edit"></i>';
+              break;
+            case 'save':
+            case 'done':
+              label = '<i class="fa fa-save"></i>';
+              break;
+            case 'cancel':
+              label = '<i class="fa fa-window-close"></i>';
+              break;
+            case 'show':
+              label = '<i class="fa fa-eye"></i>';
+              break;
+            default:
+              label = msg;
+              break;
+          }
+
+          return (
+            '&nbsp;'.repeat(spaceBegin.length) +
+            '<span class="manip-cmd" data-action="' +
+            action +
+            '" data-echo="' +
+            action +
+            '">' +
+            label +
+            '</span>' +
+            '&nbsp;'.repeat(spaceEnd.length)
+          );
+        }
+      );
+    }
+  );
+
+  element.innerHTML = html;
+
+  // Replace "<hc>command</hc>" tags surrounding commands to send as is.
+  const hcElements = element.querySelectorAll('hc');
+  hcElements.forEach(function (hcEl) {
+    const cmd = hcEl.textContent;
+    const span = document.createElement('span');
+    span.className = 'manip-cmd';
+    span.setAttribute('data-action', cmd);
+    span.setAttribute('data-echo', cmd);
+    // Move all child nodes from hc element to span
+    while (hcEl.firstChild) {
+      span.appendChild(hcEl.firstChild);
+    }
+    hcEl.parentNode.replaceChild(span, hcEl);
   });
 
-  // <hl>http(s)://...</hl> -> ссылка
-  spanEl.querySelectorAll('hl').forEach(hl => {
-    const frag = document.createDocumentFragment();
-    while (hl.firstChild) frag.appendChild(hl.firstChild);
-    const href = (frag.textContent || '').trim();
-    if (!/^https?:\/\//i.test(href)) return; // базовая валидация
-    const a = document.createElement('a');
-    a.className = 'manip-link';
-    a.target = '_blank';
-    a.rel = 'noopener';
-    a.href = href;
-    a.appendChild(frag);
-    hl.replaceWith(a);
+  // Replace "<hl>hyper link</hl>" tags surrounding hyper links.
+  // Basic sanitization of the links.
+  const hlElements = element.querySelectorAll('hl');
+  hlElements.forEach(function (hlEl) {
+    const href = hlEl.textContent;
+    if (!href.startsWith('http')) return;
+
+    const link = document.createElement('a');
+    link.className = 'manip-link';
+    link.setAttribute('href', href);
+    link.setAttribute('target', '_blank');
+    // Move all child nodes from hl element to link
+    while (hlEl.firstChild) {
+      link.appendChild(hlEl.firstChild);
+    }
+    hlEl.parentNode.replaceChild(link, hlEl);
   });
 
-  // <hh>article name</hh> или <hh id="333">label</hh> -> ссылка на help
-  spanEl.querySelectorAll('hh').forEach(hh => {
-    const labelText = hh.textContent || '';
-    const id = hh.getAttribute('id') || labelText;
+  // Replace "<hh>article name</hh>" or "<hh id='333'>" tags surrounding help articles.
+  const hhElements = element.querySelectorAll('hh');
+  hhElements.forEach(function (hhEl) {
+    const article = hhEl.textContent;
+    const id = hhEl.getAttribute('id') || article;
 
-    const matches = labelText.match(/^( *)([\0-\uFFFF]*[^ ])( *)$/m);
+    // Split the string into <initial spaces><label ending with non-space><ending spaces>
+    const matches = article.match(/^( *)([\0-\uFFFF]*[^ ])( *)$/m);
     if (!matches || matches.length < 4) {
-      // Неверный формат, оставим как есть
+      // Do nothing for invalid help links.
       return;
     }
+
     const spaceBegin = matches[1].length;
-    const label = matches[2];
     const spaceEnd = matches[3].length;
+    const label = matches[2];
 
-    const inner = document.createElement('span');
-    inner.className = 'manip-cmd manip-link';
-    inner.setAttribute('data-action', 'help ' + id);
-    inner.setAttribute('data-echo', 'справка ' + id);
-    inner.textContent = label;
+    // Recreate initial and ending spaces as nbsp, so that the underlining link only surrounds the label.
+    const span = document.createElement('span');
+    span.className = 'manip-cmd manip-link';
+    span.setAttribute('data-action', 'help ' + id);
+    span.setAttribute('data-echo', 'справка ' + id);
+    span.textContent = label;
 
-    // Собираем строку с nbps по краям, как в оригинале
-    const resultHtml =
-      '&nbsp;'.repeat(spaceBegin) + inner.outerHTML + '&nbsp;'.repeat(spaceEnd);
-
-    const wrapper = document.createElement('span');
-    wrapper.innerHTML = resultHtml;
-    hh.replaceWith(
-      wrapper.firstChild,
-      wrapper.firstChild?.nextSibling,
-      wrapper.firstChild?.nextSibling?.nextSibling
-    );
+    const replacement = '&nbsp;'.repeat(spaceBegin) + span.outerHTML + '&nbsp;'.repeat(spaceEnd);
+    hhEl.outerHTML = replacement;
   });
 
-  // <hg>skill group</hg> -> glist ...
-  spanEl.querySelectorAll('hg').forEach(hg => {
-    const text = (hg.textContent || '').trim();
-    const s = document.createElement('span');
-    s.className = 'manip-cmd';
-    s.setAttribute('data-action', 'glist ' + text);
-    s.setAttribute('data-echo', 'группаумен ' + text);
-    s.textContent = text;
-    hg.replaceWith(s);
+  // Replace "<hg>skill group</hg>" tags surrounding group names.
+  const hgElements = element.querySelectorAll('hg');
+  hgElements.forEach(function (hgEl) {
+    const article = hgEl.textContent;
+    const span = document.createElement('span');
+    span.className = 'manip-cmd';
+    span.setAttribute('data-action', 'glist ' + article);
+    span.setAttribute('data-echo', 'группаумен ' + article);
+    // Move all child nodes from hg element to span
+    while (hgEl.firstChild) {
+      span.appendChild(hgEl.firstChild);
+    }
+    hgEl.parentNode.replaceChild(span, hgEl);
   });
 
-  // <hs>speedwalk</hs> -> run speedwalk
-  spanEl.querySelectorAll('hs').forEach(hs => {
-    const text = (hs.textContent || '').trim();
-    const s = document.createElement('span');
-    s.className = 'manip-cmd manip-speedwalk';
-    s.setAttribute('data-action', 'run ' + text);
-    s.setAttribute('data-echo', 'бежать ' + text);
-    s.textContent = text;
-    hs.replaceWith(s);
+  // Replace "<hs>speedwalk</hs>" tags with 'run speedwalk' command.
+  const hsElements = element.querySelectorAll('hs');
+  hsElements.forEach(function (hsEl) {
+    const article = hsEl.textContent;
+    const span = document.createElement('span');
+    span.className = 'manip-cmd manip-speedwalk';
+    span.setAttribute('data-action', 'run ' + article);
+    span.setAttribute('data-echo', 'бежать ' + article);
+    // Move all child nodes from hs element to span
+    while (hsEl.firstChild) {
+      span.appendChild(hsEl.firstChild);
+    }
+    hsEl.parentNode.replaceChild(span, hsEl);
   });
 
-  // <m i="234234" c="take $,put $ 12348" l="..."/> -> dropdown с пунктами-акциями
-  spanEl.querySelectorAll('m').forEach(m => {
-    const id = m.getAttribute('i') || '';
-
+  // Replace item manipulation "<m i='234234' c='take $,put $ 12348'/>" tags surrounding every item.
+  const mElements = element.querySelectorAll('m');
+  mElements.forEach(function (mEl) {
+    // Populate menu node for each item based on the 'c' and 'l' attributes containing command lists.
+    // Mark menu nodes so that they can be removed and not mess up the triggers.
+    const id = mEl.getAttribute('i');
     const menu = document.createElement('span');
     menu.className = 'dropdown-menu no-triggers';
 
-    const addToMenu = cmd => {
-      if (!cmd || cmd.trim().length === 0) return;
-      const action = cmd.replace(/\$/g, id);
-      // label без $ и больших чисел/квотированных вставок
-      const label = cmd.replace(/( *\$ *| *[0-9]{5,}|\.'.*')/g, '').trim();
-
-      const a = document.createElement('a');
-      a.className = 'dropdown-item manip-item';
-      a.href = '#';
-      a.setAttribute('data-action', action);
-      a.textContent = label;
-      menu.appendChild(a);
-    };
-
-    if (m.hasAttribute('c')) {
-      m.getAttribute('c')
-        .split(',')
-        .map(x => x)
-        .forEach(addToMenu);
+    function addToMenu(cmd) {
+      if (cmd.trim().length === 0) return;
+      const action = cmd.replace(/\$/, id);
+      // Menu entry visible to the user will only contain a meaningful word, without IDs or $ placeholders.
+      const label = cmd.replace(/( *\$ *| *[0-9]{5,}|\.'.*')/g, '');
+      const link = document.createElement('a');
+      link.className = 'dropdown-item manip-item';
+      link.setAttribute('data-action', action);
+      link.setAttribute('href', '#');
+      link.textContent = label;
+      menu.appendChild(link);
     }
 
-    if (m.hasAttribute('l')) {
+    // Main commands above the divider.
+    if (mEl.hasAttribute('c')) {
+      const commands = mEl.getAttribute('c').split(',');
+      commands.forEach(cmd => addToMenu(cmd));
+    }
+
+    // Commands only available in this room, below the divider.
+    if (mEl.hasAttribute('l')) {
       const divider = document.createElement('div');
       divider.className = 'dropdown-divider';
       menu.appendChild(divider);
-      m.getAttribute('l')
-        .split(',')
-        .map(x => x)
-        .forEach(addToMenu);
+      const localCommands = mEl.getAttribute('l').split(',');
+      localCommands.forEach(cmd => addToMenu(cmd));
     }
 
-    // toggle с содержимым исходного <m>
+    // Create drop-down toggle from item description text.
     const toggle = document.createElement('span');
     toggle.className = 'dropdown-toggle';
     toggle.setAttribute('data-bs-toggle', 'dropdown');
-    while (m.firstChild) toggle.appendChild(m.firstChild);
+    // Move all child nodes from m element to toggle
+    while (mEl.firstChild) {
+      toggle.appendChild(mEl.firstChild);
+    }
 
-    // обёртка
-    const wrapper = document.createElement('span');
-    wrapper.className = 'dropdown-norelative';
-    wrapper.appendChild(toggle);
-    wrapper.appendChild(menu);
-
-    // заменить в DOM
-    m.replaceWith(wrapper);
-
-    // инициализируем Bootstrap Dropdown (если подключён)
+    // Replace '<m>' pseudo-tag with Popper dropdown markup.
+    const result = document.createElement('span');
+    result.className = 'dropdown-norelative';
+    result.appendChild(toggle);
+    result.appendChild(menu);
+    
+    // Initialize Bootstrap 5 dropdown programmatically
     setTimeout(() => {
-      const DD = window.bootstrap && window.bootstrap.Dropdown;
-      if (DD) new DD(toggle);
+      if (window.bootstrap && window.bootstrap.Dropdown) {
+        const dropdownToggleEl = result.querySelector('.dropdown-toggle');
+        if (dropdownToggleEl) {
+          new window.bootstrap.Dropdown(dropdownToggleEl);
+        }
+      }
     }, 0);
+    
+    mEl.parentNode.replaceChild(result, mEl);
   });
 }
 

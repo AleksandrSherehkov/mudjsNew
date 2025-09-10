@@ -1,5 +1,3 @@
-/* global mudprompt, notify, echo, send, keydown:writable */
-/* eslint no-unused-vars: "off" */
 /* Этот файл будет сохранен в браузере (в LocalStorage.settings).
  * В переменной mudprompt хранится много полезной информации о персонаже.
  * Подробнее см. https://github.com/dreamland-mud/mudjs/wiki/MUD-prompt
@@ -9,10 +7,7 @@
 /*--------------------------------------------------------------------------
  * Триггера - автоматические действия как реакция на какую-то строку в мире.
  *-------------------------------------------------------------------------*/
-document.querySelectorAll('.trigger').forEach(trigger => {
-  trigger.addEventListener('text', function(e) {
-    const text = e.detail;
-    
+$('.trigger').on('text', function(e, text) {
     if (text.match('ВЫБИЛ.? у тебя оружие, и оно упало на землю!$')) {
 //        echo('>>> Подбираю оружие с пола, очистив буфер команд.\n');
 //        send('\\');
@@ -43,7 +38,6 @@ document.querySelectorAll('.trigger').forEach(trigger => {
         // Всплывающие оповещения для важных сообщений.
         notify(text);
     }
-  });
 });
 
 /*----------------------------------------------------------------------------
@@ -75,10 +69,7 @@ function command(e, cmd, text, handler) {
 }
 
 // Примеры алиасов.
-document.querySelectorAll('.trigger').forEach(trigger => {
-  trigger.addEventListener('input', function(e) {
-    const text = e.detail;
-    
+$('.trigger').on('input', function(e, text) {
     // Установить жертву для выстрелов, например: /victim хассан
     command(e, '/victim', text, function(args) {
         victim = args[1];
@@ -111,7 +102,6 @@ document.querySelectorAll('.trigger').forEach(trigger => {
         echo('>>> Поехали, вышибаем по направлению ' + doorToBash + '\n');
         send('выбить ' + doorToBash);
     });
-  });
 });
 
 
@@ -193,8 +183,7 @@ keydown=function(e) {
             
         case 27: // Например, 27 -- код кнопки Escape
             if(!e.shiftKey && !e.ctrlKey && !e.altKey) {
-                const inputEl = document.querySelector('#input input');
-                if (inputEl) inputEl.value = ''; // очистить поле ввода
+                $('#input input').val(''); // очистить поле ввода
             } else {
                 return;
             }

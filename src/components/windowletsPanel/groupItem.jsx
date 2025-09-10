@@ -18,9 +18,9 @@ const TeamMate = (stats) => {
     )
 }
 
-export default function GroupItem(props) {
+export default function GroupItem(prompt) {
 
-    return <PanelItem title={'Группа ' + props.group.ln} collapsed={true} >
+    return <PanelItem title={'Группа ' + prompt.group.ln} collapsed={true} >
             <div id="group-table">
                 <table>
                     <thead>
@@ -32,13 +32,13 @@ export default function GroupItem(props) {
                         </tr>
                     </thead>
                     <tbody>
-                        {props.group.leader && <TeamMate {...props.group.leader}/>}
-                        {props.group.pc && props.group.pc.map((stats, i) => {
+                        {prompt.group.leader && <TeamMate {...prompt.group.leader}/>}
+                        {prompt.group.pc && prompt.group.pc.map((stats, i) => {
                             return (
                                 <TeamMate key={i} {...stats} />
                             )
                         })}
-                        {props.group.npc && props.group.npc.map((stats, i) => {
+                        {prompt.group.npc && prompt.group.npc.map((stats, i) => {
                             return (
                                 <TeamMate key={i} {...stats} />
                             )

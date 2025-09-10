@@ -11,12 +11,12 @@ export default defineConfig({
   plugins: [
     react(),
     compression({
-      algorithm: 'brotliCompress', // або 'gzip'
+      algorithm: 'brotliCompress', // или 'gzip'
       ext: '.br',
       threshold: 10240,
+      apply: 'build', // включаем только при билде
     }),
   ],
-  base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -25,6 +25,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
+        // пока можно оставить @import, но постепенно лучше перейти на @use
         additionalData: `@import "./scss/main.scss";`,
       },
     },

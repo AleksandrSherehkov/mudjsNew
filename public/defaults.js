@@ -1,248 +1,280 @@
 /* Этот файл будет сохранен в браузере (в LocalStorage.settings).
  * В переменной mudprompt хранится много полезной информации о персонаже.
- * Подробнее см. https://github.com/dreamland-mud/mudjs/wiki/MUD-prompt
- * Расшифровка аффектов: https://github.com/dreamland-mud/mudjs/blob/dreamland/src/components/windowletsPanel/windowletsConstants.js
+ * Расшифровка аффектов: см. исходники клиента.
+ *
+ * Версия без jQuery: подписывается на #triggers и .trigger, а также на #input input.
  */
 
-/*--------------------------------------------------------------------------
- * Триггера - автоматические действия как реакция на какую-то строку в мире.
- *-------------------------------------------------------------------------*/
-$('.trigger').on('text', function(e, text) {
-    if (text.match('ВЫБИЛ.? у тебя оружие, и оно упало на землю!$')) {
-//        echo('>>> Подбираю оружие с пола, очистив буфер команд.\n');
-//        send('\\');
-//        send('взять ' + weapon + '|надеть ' + weapon);
+(() => {
+  // ====== Утилиты окружения ======
+  const $id = sel => document.getElementById(sel);
+  const $qs = sel => document.querySelector(sel);
+
+  // Глобальные функции предоставляет клиент:
+  // send(cmd), echo(txt), notify(txt), mudprompt
+  const safeSend = cmd => {
+    try {
+      send(cmd);
+    } catch (e) {
+      console.warn('send() missing?', e);
+    }
+  };
+  const safeEcho = txt => {
+    try {
+      echo(txt);
+    } catch (e) {
+      console.warn('echo() missing?', e);
+    }
+  };
+  const safeNotify = txt => {
+    try {
+      notify(txt);
+    } catch (e) {
+      console.warn('notify() missing?', e);
+    }
+  };
+
+  // ====== Состояние (дефолты) ======
+  let victim = 'Бандит'; // текущая мишень для дальних атак
+  let doorToBash = 'n'; // направление выбивания
+  let weapon = 'dagger'; // оружие для триггера обезоруживания
+
+  // ====== Триггеры по входящему тексту ======
+  function onWorldText(text) {
+    if (!text || typeof text !== 'string') return;
+
+    // Обезоружили — подбираем
+    if (/ВЫБИЛ.? у тебя оружие, и оно упало на землю!$/.test(text)) {
+      // safeEcho('>>> Подбираю оружие с пола, очистив буфер команд.\n');
+      // safeSend('\\');
+      // safeSend('взять ' + weapon + '|надеть ' + weapon);
     }
 
-    if (text.match('^Ты умираешь от голода|^Ты умираешь от жажды')) {
-        if (mudprompt.p2.pos === 'stand' || mudprompt.p2.pos === 'sit' || mudprompt.p2.pos === 'rest') {
-//        echo('>>> Правильно питаюсь, когда не сплю и не сражаюсь.\n');
-//        send('взять бочон сумка');
-//        send('пить боч|пить боч|пить боч');
-//        send('положить боч сумка');
-        }
+    // Голод/жажда — только если не спим/не в бою
+    if (/^Ты умираешь от голода|^Ты умираешь от жажды/.test(text)) {
+      const pos = mudprompt?.p2?.pos;
+      if (pos === 'stand' || pos === 'sit' || pos === 'rest') {
+        // safeSend('взять бочон сумка');
+        // safeSend('пить боч|пить боч|пить боч');
+        // safeSend('положить боч сумка');
+      }
     }
 
-    if (text.match('Обессилев, ты падаешь лицом вниз!')) {
-//        echo('>>> ЕЩЕ РАЗОК!!!\n');
-//        send('встать|выбить ' + doorToBash);
+    // Упали лицом вниз — пример повтора выбивания
+    if (/Обессилев, ты падаешь лицом вниз!/.test(text)) {
+      // safeSend('встать|выбить ' + doorToBash);
     }
 
+    // Важные сообщения — всплывающее уведомление
     if (
-        (text.match('^\\[ic\\] ') ||
-        text.match('^\\[ooc\\] ') ||
-        text.match(' говорит тебе \'.*\'$') ||
-        text.match(' произносит \'.*\'$'))
-        && !text.match('^Стражник|^Охранник'))
-    {
-        // Всплывающие оповещения для важных сообщений.
-        notify(text);
+      (/^\[ic\] /.test(text) ||
+        /^\[ooc\] /.test(text) ||
+        / говорит тебе '.*'$/.test(text) ||
+        / произносит '.*'$/.test(text)) &&
+      !/^Стражник|^Охранник/.test(text)
+    ) {
+      safeNotify(text);
     }
-});
+  }
 
-/*----------------------------------------------------------------------------
- * Синонимы (алиасы) -- свои команды с аргументами.
- * Также см. "справка синонимы" в игре.
- *----------------------------------------------------------------------------*/
-// Здесь хранится текущая жертва для выстрелов из лука или удаленных заклинаний.
-var victim;
+  // ====== Алиасы (синонимы) по пользовательскому вводу ======
+  function tryCommandAlias(rawText, e) {
+    if (!rawText) return false;
 
-// Здесь хранится, какую дверь пытаемся вышибить.
-var doorToBash = 'n';
+    const handle = (cmd, handler) => {
+      const re = new RegExp('^' + cmd + ' *(.*)');
+      const m = re.exec(rawText);
+      if (!m) return false;
+      handler(m);
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      return true;
+    };
 
-// Здесь хранится оружия для триггера на обезоруживание.
-var weapon = 'dagger';
-
-// Вспомогательная функция для выполнения команды с аргументами.
-function command(e, cmd, text, handler) {
-    var match, re;
-   
-   	// Попытаться распознать команду в формате 'cmd' или 'cmd аргумент'
-    re = new RegExp('^' + cmd + ' *(.*)');
-    match = re.exec(text);
-    if (!match)
-       return false;
-	
-	// Нашли соответствие. Аргументы передаем в параметры функции-обработчика команды.
-    handler(match);
-    e.stopPropagation(); // команда обработана локально - не отправлять на сервер
-}
-
-// Примеры алиасов.
-$('.trigger').on('input', function(e, text) {
-    // Установить жертву для выстрелов, например: /victim хассан
-    command(e, '/victim', text, function(args) {
+    // /victim <имя>
+    if (
+      handle('/victim', args => {
         victim = args[1];
-        echo('>>> Твоя мишень теперь ' + victim + "\n");
-    });
-    
-    // Установить оружие (см. тригер выше), например: /weapon меч
-    command(e, '/weapon', text, function(args) {
+        safeEcho(
+          '>>> Твоя мишень теперь: ' +
+            victim +
+            '\n(Используй /victim <имя>, чтобы сменить цель)'
+        );
+      })
+    )
+      return true;
+
+    // /weapon <название>
+    if (
+      handle('/weapon', args => {
         weapon = args[1];
-        echo('>>> Твое оружие теперь ' + weapon + "\n");
-    });
-    
-    // Опознать вещь из сумки, например: /iden кольцо
-    command(e, '/iden', text, function(args) {
-        send('взять ' + args[1] + ' сумка');
-        send('к опознание ' + args[1]);
-        send('полож ' + args[1] + ' сумка');
-    });
+        safeEcho(
+          '>>> Твоё оружие теперь: ' +
+            weapon +
+            '\n(Используй /weapon <название>, чтобы сменить оружие)'
+        );
+      })
+    )
+      return true;
 
-    // Выбросить и уничтожить вещь из сумки: /purge барахло
-    command(e, '/purge', text, function(args) {
-        send('взять ' + args[1] + ' сумка');
-        send('бросить ' + args[1]);
-        send('жертвовать ' + args[1]);
-    });
-   
-    // Начать выбивать двери (см. тригер выше): /bd юг
-    command(e, '/bd', text, function(args) {
+    // /iden <предмет>
+    if (
+      handle('/iden', args => {
+        const item = args[1];
+        safeEcho(
+          '>>> Опознание предмета: ' +
+            item +
+            '\n(Используй /iden <название>, чтобы опознать вещи из сумки)'
+        );
+        safeSend('взять ' + item + ' сумка');
+        safeSend('к опознание ' + item);
+        safeSend('полож ' + item + ' сумка');
+      })
+    )
+      return true;
+
+    // /purge <предмет>
+    if (
+      handle('/purge', args => {
+        const item = args[1];
+        safeEcho(
+          '>>> Уничтожаю предмет: ' +
+            item +
+            '\n(Используй /purge <название>, чтобы выбросить и пожертвовать)'
+        );
+        safeSend('взять ' + item + ' сумка');
+        safeSend('бросить ' + item);
+        safeSend('жертвовать ' + item);
+      })
+    )
+      return true;
+
+    // /bd <направление>
+    if (
+      handle('/bd', args => {
         doorToBash = args[1];
-        echo('>>> Поехали, вышибаем по направлению ' + doorToBash + '\n');
-        send('выбить ' + doorToBash);
+        safeEcho(
+          '>>> Поехали, вышибаем дверь на ' +
+            doorToBash +
+            '\n(Используй /bd <направление>, чтобы сменить сторону)'
+        );
+        safeSend('выбить ' + doorToBash);
+      })
+    )
+      return true;
+
+    return false;
+  }
+
+  // ====== Движение/стрельба/всматривание ======
+  function go(where) {
+    safeSend(where);
+  }
+  function scan(where) {
+    safeSend('scan ' + where);
+  }
+  function shoot(where) {
+    // примеры:
+    // safeSend('стрелять ' + where + ' ' + victim);
+    // safeSend("к 'стен клинк' " + where + '.' + victim);
+  }
+  function dir(d, e) {
+    if (e.ctrlKey) shoot(d);
+    else if (e.altKey) scan(d);
+    else go(d);
+  }
+
+  // ====== Горячие клавиши на поле ввода ======
+  function onInputKeydown(e) {
+    switch (e.code) {
+      case 'Numpad1':
+        dir('down', e);
+        break;
+      case 'Numpad2':
+        dir('south', e);
+        break;
+      case 'Numpad4':
+        dir('west', e);
+        break;
+      case 'Numpad5':
+        safeSend('scan');
+        break;
+      case 'Numpad6':
+        dir('east', e);
+        break;
+      case 'Numpad8':
+        dir('north', e);
+        break;
+      case 'Numpad9':
+        dir('up', e);
+        break;
+
+      case 'Escape': {
+        if (!e.shiftKey && !e.ctrlKey && !e.altKey) {
+          const input = $qs('#input input');
+          if (input) input.value = '';
+        } else return;
+        break;
+      }
+
+      // Тильда — тут можно включить автобаф как в старом файле
+      case 'Backquote': {
+        // пример:
+        // if (mudprompt.enh === 'none' || mudprompt.enh.a.indexOf("l") === -1) safeSend("c learning");
+        // ...
+        break;
+      }
+
+      default:
+        return;
+    }
+    e.preventDefault();
+  }
+
+  // ====== Подписки на события ======
+
+  // 1) Современный источник: #triggers (CustomEvent)
+  const triggersEl = $id('triggers');
+  if (triggersEl) {
+    triggersEl.addEventListener('text', e => {
+      const [text] = Array.isArray(e.detail) ? e.detail : [e.detail];
+      onWorldText(String(text ?? ''));
     });
-});
+    triggersEl.addEventListener('input', e => {
+      const [text] = Array.isArray(e.detail) ? e.detail : [e.detail];
+      tryCommandAlias(String(text ?? ''), e);
+    });
+  }
 
+  // 2) Обратная совместимость: старая обёртка .trigger
+  const legacy = document.querySelector('.trigger');
+  if (legacy) {
+    legacy.addEventListener('text', e => {
+      const [text] = Array.isArray(e.detail) ? e.detail : [e.detail];
+      onWorldText(String(text ?? ''));
+    });
+    legacy.addEventListener('input', e => {
+      const [text] = Array.isArray(e.detail) ? e.detail : [e.detail];
+      tryCommandAlias(String(text ?? ''), e);
+    });
+  }
 
-/*------------------------------------------------------------------------------
- * Горячие клавиши: по умолчанию умеет ходить/стрелять/всматриваться через кейпад. 
- *------------------------------------------------------------------------------*/
+  // 3) Клавиатура на поле ввода
+  document.addEventListener('DOMContentLoaded', () => {
+    // мини-справка по алиасам при запуске
+    safeEcho(
+      '>>> Доступные алиасы:\n' +
+        '    /victim <имя>      — выбрать цель (сейчас: ' +
+        victim +
+        ')\n' +
+        '    /weapon <название> — выбрать оружие (сейчас: ' +
+        weapon +
+        ')\n' +
+        '    /iden <предмет>    — опознание предмета из сумки\n' +
+        '    /purge <предмет>   — выбросить и пожертвовать предмет\n' +
+        '    /bd <направление>  — начать выбивание двери\n'
+    );
 
-// Вспомогательные функции для горячих клавиш.
-function go(where) {
-    send(where);
-}
-
-function scan(where) {
-    send('scan ' + where);
-}
-
-// Рейнджеры могут стрелять по жертве victim из лука, а маги и клеры -- 
-// бить заклинаниями на расстоянии в заданном направлении.
-function shoot(where) {
-//    send('стрелять ' + where + ' ' + victim); 
-//    send("к 'стен клинк' " + where + '.' + victim);
-//    send("к 'струя кисл' " + where + '.' + victim);
-}
-
-// Коды клавиш на кейпаде.
-var KP_0 = 96,
-    KP_1 = 97,
-    KP_2 = 98,
-    KP_3 = 99,
-    KP_4 = 100,
-    KP_5 = 101,
-    KP_6 = 102,
-    KP_7 = 103,
-    KP_8 = 104,
-    KP_9 = 105,
-    KP_MUL = 106,
-    KP_PLUS = 107,
-    KP_MINUS = 109,
-    KP_DOT = 110,
-    KP_DIV = 111;
-
-// Просто клавиша - идти по направлению, ctrl+клавиша - стрелять, alt+клавиша - всмотреться.
-function dir(d, e) {
-    if(e.ctrlKey) {
-        shoot(d);
-    } else if(e.altKey) {
-        scan(d);
-    } else {
-        go(d);
-    }
-}
-
-// Назначаем горячие клавиши и их действия.
-// Чтобы назначить действие на кнопку, нужно сначала найти ее код.
-// Коды кнопок смотри тут: https://keycode.info 
-keydown=function(e) {
-    switch(e.which) {
-        case KP_1:
-            dir('down', e);
-            break;
-        case KP_2:
-            dir('south', e);
-            break;
-        case KP_4:
-            dir('west', e);
-            break;
-        case KP_5:
-            send('scan');
-            break;
-        case KP_6:
-            dir('east', e);
-            break;
-        case KP_8:
-            dir('north', e);
-            break;
-        case KP_9:
-            dir('up', e);
-            break;
-            
-        case 27: // Например, 27 -- код кнопки Escape
-            if(!e.shiftKey && !e.ctrlKey && !e.altKey) {
-                $('#input input').val(''); // очистить поле ввода
-            } else {
-                return;
-            }
-            break;
-            
-/*
-        case 192: // 192 -- код кнопки ~ (тильда)
-            // Пример автобаффа: проверяем какие аффекты отсутствуют и вешаем их.
-            if (mudprompt.enh === 'none' || mudprompt.enh.a.indexOf("l") == -1)
-                send("c learning");                    
-            if (mudprompt.enh === 'none' || mudprompt.enh.a.indexOf("g") == -1)
-                send("c giant");
-            if (mudprompt.enh === 'none' || mudprompt.enh.a.indexOf("f") == -1)
-                send("c frenzy");
-            if (mudprompt.enh === 'none' || mudprompt.enh.a.indexOf("h") == -1)
-                send("order rat c haste fiorine");  // Тут подставьте ваше имя.
-            if (mudprompt.pro === 'none' || mudprompt.pro.a.indexOf("p") == -1)
-                send("c 'prot shield'");
-            if (mudprompt.pro === 'none' || mudprompt.pro.a.indexOf("s") == -1)
-                send("c sanctuary");
-            // ... и так далее 
-            break;
-*/
-
-/*
-        case KP_0:
-            break;
-        case KP_2:
-            break;        
-        case KP_7:
-            break;
-        case KP_MUL:
-            break;
-        case KP_PLUS:
-            break;
-        case KP_MINUS:
-            break;
-        case KP_DOT:
-            break;
-        case KP_DIV:
-            break;
-        case 112: // F1
-            break;
-        case 113: // F2
-            break;
-        case 114: // F3
-            break;
-        case 115: // F4
-            break;
-        case 116: // F5
-            break;
-            
-       // Для кодов остальных клавиш смотри https://keycode.info 
-*/
-
-        default: 
-            return; // по умолчанию просто посылаем клавишу на сервер
-    }
-    
-    e.preventDefault(); // не посылать клавишу на сервер если обработана выше
-};
-
+    const input = $qs('#input input');
+    if (input) input.addEventListener('keydown', onInputKeydown);
+  });
+})();

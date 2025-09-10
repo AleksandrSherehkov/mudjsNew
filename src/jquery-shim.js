@@ -2,7 +2,7 @@
 // This provides basic jQuery functionality for legacy code
 import 'devbridge-autocomplete';
 
-const $ = (selector) => {
+const $ = selector => {
   if (typeof selector === 'function') {
     // Handle $(document).ready()
     if (document.readyState === 'loading') {
@@ -16,25 +16,35 @@ const $ = (selector) => {
   // Handle $(document) specifically
   if (selector === document) {
     return {
-      ready: (callback) => {
+      ready: callback => {
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', callback);
         } else {
           callback();
         }
       },
-      on: (event, handler) => document.addEventListener(event, handler),
+      on: (event, handler) =>
+        document.addEventListener(event, e => {
+          const args = Array.isArray(e.detail) ? e.detail : [e.detail];
+          handler(e, ...args);
+        }),
       off: (event, handler) => document.removeEventListener(event, handler),
-      trigger: (event, data) => document.dispatchEvent(new CustomEvent(event, { detail: data }))
+      trigger: (event, data) =>
+        document.dispatchEvent(new CustomEvent(event, { detail: data })),
     };
   }
 
   // Handle $(window) specifically
   if (selector === window) {
     return {
-      on: (event, handler) => window.addEventListener(event, handler),
+      on: (event, handler) =>
+        window.addEventListener(event, e => {
+          const args = Array.isArray(e.detail) ? e.detail : [e.detail];
+          handler(e, ...args);
+        }),
       off: (event, handler) => window.removeEventListener(event, handler),
-      trigger: (event, data) => window.dispatchEvent(new CustomEvent(event, { detail: data }))
+      trigger: (event, data) =>
+        window.dispatchEvent(new CustomEvent(event, { detail: data })),
     };
   }
 
@@ -47,20 +57,32 @@ const $ = (selector) => {
       on: (event, selectorOrHandler, handler) => {
         if (typeof selectorOrHandler === 'function') {
           // Simple event binding: .on('click', handler)
-          element.addEventListener(event, selectorOrHandler);
+          element.addEventListener(event, e => {
+            const args = Array.isArray(e.detail) ? e.detail : [e.detail];
+            selectorOrHandler(e, ...args);
+          });
         } else {
           // Event delegation: .on('click', '.selector', handler)
-          const delegatedHandler = (e) => {
-            if (e.target.matches(selectorOrHandler) || e.target.closest(selectorOrHandler)) {
-              handler.call(e.target.closest(selectorOrHandler) || e.target, e);
+          const delegatedHandler = e => {
+            if (
+              e.target.matches(selectorOrHandler) ||
+              e.target.closest(selectorOrHandler)
+            ) {
+              const args = Array.isArray(e.detail) ? e.detail : [e.detail];
+              handler.call(
+                e.target.closest(selectorOrHandler) || e.target,
+                e,
+                ...args
+              );
             }
           };
           element.addEventListener(event, delegatedHandler);
         }
       },
       off: (event, handler) => element.removeEventListener(event, handler),
-      trigger: (event, data) => element.dispatchEvent(new CustomEvent(event, { detail: data })),
-      val: (value) => {
+      trigger: (event, data) =>
+        element.dispatchEvent(new CustomEvent(event, { detail: data })),
+      val: value => {
         if (value !== undefined) {
           element.value = value;
           return this;
@@ -69,7 +91,10 @@ const $ = (selector) => {
       },
       text: () => element.textContent,
       html: () => element.innerHTML,
-      attr: (name, value) => value !== undefined ? element.setAttribute(name, value) : element.getAttribute(name),
+      attr: (name, value) =>
+        value !== undefined
+          ? element.setAttribute(name, value)
+          : element.getAttribute(name),
       css: (property, value) => {
         if (value !== undefined) {
           element.style[property] = value;
@@ -77,9 +102,18 @@ const $ = (selector) => {
         }
         return getComputedStyle(element)[property];
       },
-      hide: () => { element.style.display = 'none'; return this; },
-      show: () => { element.style.display = ''; return this; },
-      focus: () => { element.focus(); return this; },
+      hide: () => {
+        element.style.display = 'none';
+        return this;
+      },
+      show: () => {
+        element.style.display = '';
+        return this;
+      },
+      focus: () => {
+        element.focus();
+        return this;
+      },
       data: (key, value) => {
         if (value !== undefined) {
           element.setAttribute('data-' + key, value);
@@ -87,12 +121,15 @@ const $ = (selector) => {
         }
         return element.getAttribute('data-' + key);
       },
-      closest: (selector) => {
+      closest: selector => {
         const closest = element.closest(selector);
         return closest ? $(closest) : null;
       },
-      remove: () => { element.remove(); return this; },
-      click: (handler) => {
+      remove: () => {
+        element.remove();
+        return this;
+      },
+      click: handler => {
         if (handler) {
           element.addEventListener('click', handler);
           return this;
@@ -101,19 +138,19 @@ const $ = (selector) => {
           return this;
         }
       },
-      addClass: (className) => {
+      addClass: className => {
         element.classList.add(className);
         return this;
       },
-      removeClass: (className) => {
+      removeClass: className => {
         element.classList.remove(className);
         return this;
       },
-      toggleClass: (className) => {
+      toggleClass: className => {
         element.classList.toggle(className);
         return this;
       },
-      append: (content) => {
+      append: content => {
         if (typeof content === 'string') {
           element.insertAdjacentHTML('beforeend', content);
         } else {
@@ -121,29 +158,53 @@ const $ = (selector) => {
         }
         return this;
       },
-      autocomplete: function(options) {
+      autocomplete: function (options) {
         // Use devbridge-autocomplete functionality directly
         try {
           // Create a minimal jQuery-like wrapper for devbridge-autocomplete
           const jqElement = {
             0: element,
             length: 1,
-            addClass: (className) => { element.classList.add(className); return jqElement; },
-            removeClass: (className) => { element.classList.remove(className); return jqElement; },
-            attr: (name, value) => value !== undefined ? element.setAttribute(name, value) : element.getAttribute(name),
-            val: (value) => {
+            addClass: className => {
+              element.classList.add(className);
+              return jqElement;
+            },
+            removeClass: className => {
+              element.classList.remove(className);
+              return jqElement;
+            },
+            attr: (name, value) =>
+              value !== undefined
+                ? element.setAttribute(name, value)
+                : element.getAttribute(name),
+            val: value => {
               if (value !== undefined) {
                 element.value = value;
                 return jqElement;
               }
               return element.value;
             },
-            focus: () => { element.focus(); return jqElement; },
-            on: (event, handler) => { element.addEventListener(event, handler); return jqElement; },
-            off: (event, handler) => { element.removeEventListener(event, handler); return jqElement; },
-            trigger: (event, data) => { element.dispatchEvent(new CustomEvent(event, { detail: data })); return jqElement; }
+            focus: () => {
+              element.focus();
+              return jqElement;
+            },
+            on: (event, handler) => {
+              element.addEventListener(event, e => {
+                const args = Array.isArray(e.detail) ? e.detail : [e.detail];
+                handler(e, ...args);
+              });
+              return jqElement;
+            },
+            off: (event, handler) => {
+              element.removeEventListener(event, handler);
+              return jqElement;
+            },
+            trigger: (event, data) => {
+              element.dispatchEvent(new CustomEvent(event, { detail: data }));
+              return jqElement;
+            },
           };
-          
+
           // Use the imported devbridge-autocomplete functionality
           if (window.DevbridgeAutocomplete) {
             new window.DevbridgeAutocomplete(jqElement, options);
@@ -154,13 +215,13 @@ const $ = (selector) => {
         } catch (e) {
           console.warn('Failed to initialize autocomplete:', e);
         }
-        
+
         // Enhanced fallback: implement basic dropdown functionality
         if (options && options.lookup) {
           $._setupBasicAutocomplete(element, options);
         }
         return this;
-      }
+      },
     };
   }
 
@@ -174,20 +235,30 @@ const $ = (selector) => {
         on: (event, selectorOrHandler, handler) => {
           if (typeof selectorOrHandler === 'function') {
             // Simple event binding: .on('click', handler)
-            element.addEventListener(event, selectorOrHandler);
+            element.addEventListener(event, e => {
+              const args = Array.isArray(e.detail) ? e.detail : [e.detail];
+              selectorOrHandler(e, ...args);
+            });
           } else {
             // Event delegation: .on('click', '.selector', handler)
-            const delegatedHandler = (e) => {
-              if (e.target.matches(selectorOrHandler) || e.target.closest(selectorOrHandler)) {
-                handler.call(e.target.closest(selectorOrHandler) || e.target, e);
+            const delegatedHandler = e => {
+              if (
+                e.target.matches(selectorOrHandler) ||
+                e.target.closest(selectorOrHandler)
+              ) {
+                handler.call(
+                  e.target.closest(selectorOrHandler) || e.target,
+                  e
+                );
               }
             };
             element.addEventListener(event, delegatedHandler);
           }
         },
         off: (event, handler) => element.removeEventListener(event, handler),
-        trigger: (event, data) => element.dispatchEvent(new CustomEvent(event, { detail: data })),
-        val: (value) => {
+        trigger: (event, data) =>
+          element.dispatchEvent(new CustomEvent(event, { detail: data })),
+        val: value => {
           if (value !== undefined) {
             element.value = value;
             return this;
@@ -196,7 +267,10 @@ const $ = (selector) => {
         },
         text: () => element.textContent,
         html: () => element.innerHTML,
-        attr: (name, value) => value !== undefined ? element.setAttribute(name, value) : element.getAttribute(name),
+        attr: (name, value) =>
+          value !== undefined
+            ? element.setAttribute(name, value)
+            : element.getAttribute(name),
         css: (property, value) => {
           if (value !== undefined) {
             element.style[property] = value;
@@ -204,9 +278,18 @@ const $ = (selector) => {
           }
           return getComputedStyle(element)[property];
         },
-        hide: () => { element.style.display = 'none'; return this; },
-        show: () => { element.style.display = ''; return this; },
-        focus: () => { element.focus(); return this; },
+        hide: () => {
+          element.style.display = 'none';
+          return this;
+        },
+        show: () => {
+          element.style.display = '';
+          return this;
+        },
+        focus: () => {
+          element.focus();
+          return this;
+        },
         data: (key, value) => {
           if (value !== undefined) {
             element.setAttribute('data-' + key, value);
@@ -214,12 +297,15 @@ const $ = (selector) => {
           }
           return element.getAttribute('data-' + key);
         },
-        closest: (selector) => {
+        closest: selector => {
           const closest = element.closest(selector);
           return closest ? $(closest) : null;
         },
-        remove: () => { element.remove(); return this; },
-        click: (handler) => {
+        remove: () => {
+          element.remove();
+          return this;
+        },
+        click: handler => {
           if (handler) {
             element.addEventListener('click', handler);
             return this;
@@ -228,19 +314,19 @@ const $ = (selector) => {
             return this;
           }
         },
-        addClass: (className) => {
+        addClass: className => {
           element.classList.add(className);
           return this;
         },
-        removeClass: (className) => {
+        removeClass: className => {
           element.classList.remove(className);
           return this;
         },
-        toggleClass: (className) => {
+        toggleClass: className => {
           element.classList.toggle(className);
           return this;
         },
-        append: (content) => {
+        append: content => {
           if (typeof content === 'string') {
             element.insertAdjacentHTML('beforeend', content);
           } else {
@@ -248,29 +334,53 @@ const $ = (selector) => {
           }
           return this;
         },
-        autocomplete: function(options) {
+        autocomplete: function (options) {
           // Use devbridge-autocomplete functionality directly
           try {
             // Create a minimal jQuery-like wrapper for devbridge-autocomplete
             const jqElement = {
               0: element,
               length: 1,
-              addClass: (className) => { element.classList.add(className); return jqElement; },
-              removeClass: (className) => { element.classList.remove(className); return jqElement; },
-              attr: (name, value) => value !== undefined ? element.setAttribute(name, value) : element.getAttribute(name),
-              val: (value) => {
+              addClass: className => {
+                element.classList.add(className);
+                return jqElement;
+              },
+              removeClass: className => {
+                element.classList.remove(className);
+                return jqElement;
+              },
+              attr: (name, value) =>
+                value !== undefined
+                  ? element.setAttribute(name, value)
+                  : element.getAttribute(name),
+              val: value => {
                 if (value !== undefined) {
                   element.value = value;
                   return jqElement;
                 }
                 return element.value;
               },
-              focus: () => { element.focus(); return jqElement; },
-              on: (event, handler) => { element.addEventListener(event, handler); return jqElement; },
-              off: (event, handler) => { element.removeEventListener(event, handler); return jqElement; },
-              trigger: (event, data) => { element.dispatchEvent(new CustomEvent(event, { detail: data })); return jqElement; }
+              focus: () => {
+                element.focus();
+                return jqElement;
+              },
+              on: (event, handler) => {
+                element.addEventListener(event, e => {
+                  const args = Array.isArray(e.detail) ? e.detail : [e.detail];
+                  handler(e, ...args);
+                });
+                return jqElement;
+              },
+              off: (event, handler) => {
+                element.removeEventListener(event, handler);
+                return jqElement;
+              },
+              trigger: (event, data) => {
+                element.dispatchEvent(new CustomEvent(event, { detail: data }));
+                return jqElement;
+              },
             };
-            
+
             // Use the imported devbridge-autocomplete functionality
             if (window.DevbridgeAutocomplete) {
               new window.DevbridgeAutocomplete(jqElement, options);
@@ -281,38 +391,38 @@ const $ = (selector) => {
           } catch (e) {
             console.warn('Failed to initialize autocomplete:', e);
           }
-          
+
           // Enhanced fallback: implement basic dropdown functionality
           if (options && options.lookup) {
             return $._setupBasicAutocomplete(element, options);
           }
           return this;
-        }
+        },
       };
     } else {
       // Multiple elements - return methods that operate on all
       return {
-        removeClass: (className) => {
+        removeClass: className => {
           elements.forEach(el => el.classList.remove(className));
           return this;
         },
-        addClass: (className) => {
+        addClass: className => {
           elements.forEach(el => el.classList.add(className));
           return this;
         },
-        toggleClass: (className) => {
+        toggleClass: className => {
           elements.forEach(el => el.classList.toggle(className));
           return this;
         },
         hide: () => {
-          elements.forEach(el => el.style.display = 'none');
+          elements.forEach(el => (el.style.display = 'none'));
           return this;
         },
         show: () => {
-          elements.forEach(el => el.style.display = '');
+          elements.forEach(el => (el.style.display = ''));
           return this;
         },
-        click: (handler) => {
+        click: handler => {
           if (handler) {
             elements.forEach(el => el.addEventListener('click', handler));
             return this;
@@ -322,9 +432,14 @@ const $ = (selector) => {
           }
         },
         on: (event, handler) => {
-          elements.forEach(el => el.addEventListener(event, handler));
+          elements.forEach(el =>
+            el.addEventListener(event, e => {
+              const args = Array.isArray(e.detail) ? e.detail : [e.detail];
+              handler(e, ...args);
+            })
+          );
           return this;
-        }
+        },
       };
     }
   }
@@ -337,9 +452,9 @@ $.extend = Object.assign;
 $.map = (array, callback) => array.map(callback);
 
 // Shared autocomplete setup method
-$._setupBasicAutocomplete = function(element, options) {
+$._setupBasicAutocomplete = function (element, options) {
   let dropdownContainer = null;
-  
+
   const createDropdown = () => {
     dropdownContainer = document.createElement('div');
     dropdownContainer.style.cssText = `
@@ -355,99 +470,105 @@ $._setupBasicAutocomplete = function(element, options) {
     `;
     document.body.appendChild(dropdownContainer);
   };
-  
-  const showSuggestions = (suggestions) => {
+
+  const showSuggestions = suggestions => {
     if (!dropdownContainer) createDropdown();
-    
+
     dropdownContainer.innerHTML = '';
-    
+
     if (suggestions.length === 0) {
       if (options.showNoSuggestionNotice && options.noSuggestionNotice) {
         const noResultDiv = document.createElement('div');
         noResultDiv.textContent = options.noSuggestionNotice;
-        noResultDiv.style.cssText = 'padding: 8px; color: #999; font-style: italic;';
+        noResultDiv.style.cssText =
+          'padding: 8px; color: #999; font-style: italic;';
         dropdownContainer.appendChild(noResultDiv);
       }
     } else {
-      suggestions.slice(0, options.lookupLimit || 10).forEach((suggestion, index) => {
-        const suggestionDiv = document.createElement('div');
-        
-        if (options.formatResult) {
-          const formatted = options.formatResult(suggestion, element.value);
-          suggestionDiv.innerHTML = formatted.value || suggestion.value;
-        } else {
-          suggestionDiv.textContent = suggestion.value;
-        }
-        
-        suggestionDiv.style.cssText = `
+      suggestions
+        .slice(0, options.lookupLimit || 10)
+        .forEach((suggestion, index) => {
+          const suggestionDiv = document.createElement('div');
+
+          if (options.formatResult) {
+            const formatted = options.formatResult(suggestion, element.value);
+            suggestionDiv.innerHTML = formatted.value || suggestion.value;
+          } else {
+            suggestionDiv.textContent = suggestion.value;
+          }
+
+          suggestionDiv.style.cssText = `
           padding: 8px 12px;
           cursor: pointer;
           border-bottom: 1px solid #333;
           color: #fff;
         `;
-        
-        if (index === 0 && options.autoSelectFirst) {
-          suggestionDiv.style.backgroundColor = '#444';
-          suggestionDiv.classList.add('selected');
-        }
-        
-        suggestionDiv.addEventListener('mouseenter', () => {
-          dropdownContainer.querySelectorAll('div').forEach(d => {
-            d.style.backgroundColor = '';
-            d.classList.remove('selected');
-          });
-          suggestionDiv.style.backgroundColor = '#444';
-          suggestionDiv.classList.add('selected');
-        });
-        
-        suggestionDiv.addEventListener('click', () => {
-          if (options.onSelect) {
-            options.onSelect(suggestion);
+
+          if (index === 0 && options.autoSelectFirst) {
+            suggestionDiv.style.backgroundColor = '#444';
+            suggestionDiv.classList.add('selected');
           }
-          dropdownContainer.style.display = 'none';
+
+          suggestionDiv.addEventListener('mouseenter', () => {
+            dropdownContainer.querySelectorAll('div').forEach(d => {
+              d.style.backgroundColor = '';
+              d.classList.remove('selected');
+            });
+            suggestionDiv.style.backgroundColor = '#444';
+            suggestionDiv.classList.add('selected');
+          });
+
+          suggestionDiv.addEventListener('click', () => {
+            if (options.onSelect) {
+              options.onSelect(suggestion);
+            }
+            dropdownContainer.style.display = 'none';
+          });
+
+          dropdownContainer.appendChild(suggestionDiv);
         });
-        
-        dropdownContainer.appendChild(suggestionDiv);
-      });
     }
-    
+
     // Position dropdown
     const rect = element.getBoundingClientRect();
     dropdownContainer.style.left = rect.left + 'px';
-    dropdownContainer.style.top = (rect.bottom + 2) + 'px';
+    dropdownContainer.style.top = rect.bottom + 2 + 'px';
     dropdownContainer.style.minWidth = rect.width + 'px';
     dropdownContainer.style.display = 'block';
   };
-  
+
   const hideDropdown = () => {
     if (dropdownContainer) {
       dropdownContainer.style.display = 'none';
     }
   };
-  
-  element.addEventListener('input', (e) => {
+
+  element.addEventListener('input', e => {
     const value = e.target.value.toLowerCase();
     if (value.length === 0) {
       hideDropdown();
       return;
     }
-    
-    const filtered = options.lookup.filter(item => 
+
+    const filtered = options.lookup.filter(item =>
       item.value.toLowerCase().includes(value)
     );
-    
+
     showSuggestions(filtered);
   });
-  
-  element.addEventListener('keydown', (e) => {
-    if (!dropdownContainer || dropdownContainer.style.display === 'none') return;
-    
+
+  element.addEventListener('keydown', e => {
+    if (!dropdownContainer || dropdownContainer.style.display === 'none')
+      return;
+
     const selected = dropdownContainer.querySelector('.selected');
     const suggestions = dropdownContainer.querySelectorAll('div');
-    
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const nextIndex = selected ? Array.from(suggestions).indexOf(selected) + 1 : 0;
+      const nextIndex = selected
+        ? Array.from(suggestions).indexOf(selected) + 1
+        : 0;
       if (nextIndex < suggestions.length) {
         if (selected) {
           selected.classList.remove('selected');
@@ -458,7 +579,9 @@ $._setupBasicAutocomplete = function(element, options) {
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const prevIndex = selected ? Array.from(suggestions).indexOf(selected) - 1 : suggestions.length - 1;
+      const prevIndex = selected
+        ? Array.from(suggestions).indexOf(selected) - 1
+        : suggestions.length - 1;
       if (prevIndex >= 0) {
         if (selected) {
           selected.classList.remove('selected');
@@ -476,29 +599,27 @@ $._setupBasicAutocomplete = function(element, options) {
       hideDropdown();
     }
   });
-  
+
   element.addEventListener('blur', () => {
     // Delay hiding to allow click events on suggestions
     setTimeout(hideDropdown, 150);
   });
-  
+
   return $;
 };
 
 // Ajax stub (for compatibility)
 $.get = (url, data, dataType) => {
-  return fetch(url)
-    .then(response => {
-      if (dataType === 'json') {
-        return response.json();
-      }
-      return response.text();
-    });
+  return fetch(url).then(response => {
+    if (dataType === 'json') {
+      return response.json();
+    }
+    return response.text();
+  });
 };
 
-$.ajax = (options) => {
-  return fetch(options.url)
-    .then(response => response.text());
+$.ajax = options => {
+  return fetch(options.url).then(response => response.text());
 };
 
 export default $;

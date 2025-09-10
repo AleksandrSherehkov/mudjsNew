@@ -13,13 +13,16 @@ let keydown = function () {};
 
 // Create a jQuery-like utility for backwards compatibility with user settings
 const createDOMUtility = () => {
-  const utility = (selector) => {
+  const utility = selector => {
     if (typeof selector === 'string') {
       const element = document.querySelector(selector);
       return {
         on: (eventType, handler) => {
           if (element) {
-            element.addEventListener(eventType, handler);
+            element.addEventListener(eventType, e => {
+              const args = Array.isArray(e.detail) ? e.detail : [e.detail];
+              handler(e, ...args);
+            });
           }
         },
         off: (eventType, handler) => {
@@ -38,8 +41,8 @@ const createDOMUtility = () => {
             element.dispatchEvent(new CustomEvent(eventType, { detail: data }));
           }
         },
-        val: () => element ? element.value : '',
-        text: () => element ? element.textContent : ''
+        val: () => (element ? element.value : ''),
+        text: () => (element ? element.textContent : ''),
       };
     }
     return utility;
@@ -110,25 +113,27 @@ document.addEventListener('DOMContentLoaded', function () {
       }
 
       loader.init().then(monaco => {
-      const editorContainer = document.querySelector('#settings-modal .editor');
-      if (!editorContainer) return;
+        const editorContainer = document.querySelector(
+          '#settings-modal .editor'
+        );
+        if (!editorContainer) return;
 
-      editor = monaco.editor.create(editorContainer, {
-        value: localStorage.settings || '',
-        language: 'javascript',
-        theme: 'vs-dark',
-        fontSize: 16,
-        wordWrap: 'on',
-        lineNumbers: 'off',
-        minimap: { enabled: false },
-        scrollBeyondLastLine: false,
-        automaticLayout: true,
-        padding: { top: 20, bottom: 20 },
-        tabSize: 4,
-        insertSpaces: false,
-        detectIndentation: true,
-        formatOnType: true,
-      });
+        editor = monaco.editor.create(editorContainer, {
+          value: localStorage.settings || '',
+          language: 'javascript',
+          theme: 'vs-dark',
+          fontSize: 16,
+          wordWrap: 'on',
+          lineNumbers: 'off',
+          minimap: { enabled: false },
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          padding: { top: 20, bottom: 20 },
+          tabSize: 4,
+          insertSpaces: false,
+          detectIndentation: true,
+          formatOnType: true,
+        });
 
         try {
           applySettings(editor.getValue());

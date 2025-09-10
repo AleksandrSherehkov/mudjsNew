@@ -262,7 +262,7 @@ function terminalInit(wrapElement) {
   };
 }
 
-const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
+const Terminal = React.memo(forwardRef(({ bumpUnread, resetUnread }, ref) => {
   const wrap = useRef();
 
   useEffect(() => terminalInit(wrap.current), [wrap]);
@@ -302,9 +302,9 @@ const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
   useImperativeHandle(
     ref,
     () => ({
-      scrollToBottom: () => wrap.current.dispatchEvent(new CustomEvent('scroll-to-bottom')),
+      scrollToBottom: () => wrap.current?.dispatchEvent(new CustomEvent('scroll-to-bottom')),
     }),
-    [wrap]
+    []
   );
 
   return (
@@ -313,9 +313,11 @@ const Terminal = forwardRef(({ bumpUnread, resetUnread }, ref) => {
         className="terminal"
         aria-live="polite"
         aria-relevant="additions"
+        role="log"
+        aria-label="Терминал игры"
       ></div>
     </div>
   );
-});
+}));
 
 export default Terminal;

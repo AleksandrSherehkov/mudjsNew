@@ -96,13 +96,12 @@ const ExitsRow = ({ e, h, l }) => {
 
 // Sector type info: i - sector icon unicode, n - sector name
 const getSectorIcon = sectorName => {
-  console.log(` sectorName:`, sectorName);
   const firstWord = sectorName
     ?.split(',')[0]
     .trim()
     .replace(/[()]/g, '')
     .toLowerCase();
-  console.log(` sectorName:`, firstWord);
+
   switch (firstWord) {
     case 'внутри':
       return <FaHome size={19} />;

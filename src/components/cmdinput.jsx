@@ -24,7 +24,7 @@ const input_history = localStorage.history
 let position = input_history.length;
 let current_cmd = '';
 
-const CmdInput = React.memo(() => {
+const CmdInput = () => {
   const theme = useTheme();
   const big = useMediaQuery(theme.breakpoints.up('sm'));
   const connection = useSelector(state => state.connection);
@@ -367,7 +367,6 @@ const CmdInput = React.memo(() => {
       )}
     </div>
   );
-});
-CmdInput.displayName = 'CmdInput';
+};
 
 export default CmdInput;

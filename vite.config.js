@@ -22,6 +22,19 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          mui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          mosaic: ['react-mosaic-component'],
+          redux: ['react-redux', 'redux'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
   css: {
     preprocessorOptions: {
       scss: {

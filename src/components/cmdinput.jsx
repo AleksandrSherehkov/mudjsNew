@@ -368,5 +368,6 @@ const CmdInput = React.memo(() => {
     </div>
   );
 });
+CmdInput.displayName = 'CmdInput';
 
 export default CmdInput;

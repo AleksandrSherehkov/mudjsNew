@@ -28,6 +28,7 @@ const OverlayCell = React.memo(({ ariaLabel, ariaHidden, children, ...props }) =
     </td>
   );
 });
+OverlayCell.displayName = 'OverlayCell';
 
 const longPressDelay = 800;
 
@@ -74,6 +75,7 @@ const KeypadCell = React.memo(({ cmd, longCmd, children, ...props }) => {
     </OverlayCell>
   );
 });
+KeypadCell.displayName = 'KeypadCell';
 
 const Keypad = React.memo(() => {
   const theme = useTheme();
@@ -125,6 +127,7 @@ const Keypad = React.memo(() => {
     </>
   );
 });
+Keypad.displayName = 'Keypad';
 
 const Overlay = React.memo(({ unread, onScrollToBottom }) => {
   return (
@@ -195,6 +198,7 @@ const Overlay = React.memo(({ unread, onScrollToBottom }) => {
     </Box>
   );
 });
+Overlay.displayName = 'Overlay';
 
 export default function MainWindow() {
   const terminal = useRef();

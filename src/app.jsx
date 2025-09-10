@@ -35,6 +35,7 @@ const MapWithToggle = React.memo(({ onToggleChat }) => {
     </div>
   );
 });
+MapWithToggle.displayName = 'MapWithToggle';
 
 const getResponsiveLayout = (bigScreen, hugeScreen) => {
   if (!bigScreen) return 'terminal';

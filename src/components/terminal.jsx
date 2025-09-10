@@ -319,5 +319,6 @@ const Terminal = React.memo(forwardRef(({ bumpUnread, resetUnread }, ref) => {
     </div>
   );
 }));
+Terminal.displayName = 'Terminal';
 
 export default Terminal;

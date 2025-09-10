@@ -5,56 +5,55 @@ import { echo } from './input.js';
 // Create the list of all possible area file names (without ".are" bit).
 const areas = areasJson.map(a => a.file.replace('.are', ''));
 
-document.addEventListener('DOMContentLoaded', function () {
-  // Control panel buttons.
-  document.body.addEventListener('click', function (e) {
-    if (e.target.classList.contains('btn-ctrl-panel')) {
-      var cmd = e.target.getAttribute('data-action');
-      var conf = e.target.getAttribute('data-confirm');
+document.body.addEventListener('click', function (e) {
+  const btn = e.target.closest('.btn-ctrl-panel');
+  if (!btn) return;
 
-      if (
-        conf !== undefined &&
-        !window.confirm('Вы действительно хотите ' + conf + '?')
-      )
-        return;
+  const cmd = btn.getAttribute('data-action');
+  const conf = btn.getAttribute('data-confirm');
 
-      echo(cmd);
-      send(cmd);
-    }
-  });
+  if (
+    btn.hasAttribute('data-confirm') &&
+    !window.confirm(`Вы действительно хотите ${conf}?`)
+  ) {
+    return;
+  }
 
-  // Send command to the server when command hyper link is clicked
-  // e. g. 'read sign' or 'walk trap'.
-  document.body.addEventListener('click', function (e) {
-    if (e.target.classList.contains('manip-cmd')) {
-      var cmd = e.target;
-      echo(cmd.getAttribute('data-echo'));
-      send(cmd.getAttribute('data-action'));
-    }
-  });
+  echo(cmd);
+  send(cmd);
+});
 
-  // Send command to the server when individual menu item is clicked.
-  document.body.addEventListener('click', function (e) {
-    if (e.target.classList.contains('manip-item')) {
-      var cmd = e.target;
-      echo(cmd.getAttribute('data-echo'));
-      send(cmd.getAttribute('data-action'));
-    }
-  });
+// Send command to the server when command hyper link is clicked
+// e. g. 'read sign' or 'walk trap'.
+document.body.addEventListener('click', function (e) {
+  if (e.target.classList.contains('manip-cmd')) {
+    var cmd = e.target;
+    echo(cmd.getAttribute('data-echo'));
+    send(cmd.getAttribute('data-action'));
+  }
+});
 
-  // Underline current selection when dropdown is shown (Bootstrap 5 event).
-  document.body.addEventListener('show.bs.dropdown', function (e) {
-    if (e.target.classList.contains('dropdown')) {
-      e.relatedTarget.style.textDecoration = 'underline';
-    }
-  });
+// Send command to the server when individual menu item is clicked.
+document.body.addEventListener('click', function (e) {
+  if (e.target.classList.contains('manip-item')) {
+    var cmd = e.target;
+    echo(cmd.getAttribute('data-echo'));
+    send(cmd.getAttribute('data-action'));
+  }
+});
 
-  // Remove underline when dropdown is hidden (Bootstrap 5 event).
-  document.body.addEventListener('hide.bs.dropdown', function (e) {
-    if (e.target.classList.contains('dropdown')) {
-      e.relatedTarget.removeAttribute('style');
-    }
-  });
+// Underline current selection when dropdown is shown (Bootstrap 5 event).
+document.body.addEventListener('show.bs.dropdown', function (e) {
+  if (e.target.classList.contains('dropdown')) {
+    e.relatedTarget.style.textDecoration = 'underline';
+  }
+});
+
+// Remove underline when dropdown is hidden (Bootstrap 5 event).
+document.body.addEventListener('hide.bs.dropdown', function (e) {
+  if (e.target.classList.contains('dropdown')) {
+    e.relatedTarget.removeAttribute('style');
+  }
 });
 
 // Replace colour "<c c='fgbr'/>" tags coming from the server with spans.
@@ -75,14 +74,17 @@ function colorParseAndReplace(element) {
 function manipParseAndReplace(element) {
   // Replace placeholders [map=filename.are] with buttons that open a map,
   // or with an empty string, if area is not found in the areas.json.
-  var html = element.innerHTML.replace(/\[map=([-0-9a-z_]{1,15})\.are\]/g, function (match, p1) {
+  var html = element.innerHTML.replace(
+    /\[map=([-0-9a-z_]{1,15})\.are\]/g,
+    function (match, p1) {
       if (areas.indexOf(p1) === -1) return '';
       return (
         '<a class="btn btn-sm btn-outline-info btn-orange" href="https://dreamland.rocks/maps/' +
         p1 +
         '.html" target=_blank>открыть карту</a>'
       );
-    });
+    }
+  );
 
   // Replace extra-description placeholders [read=sign знак,see=sign] with (<span class="manip-cmd manip-ed" data-action="read 'sign знак'">sign</span>).
   // Returns empty string if 'see' part is not contained within 'read' part.
@@ -218,7 +220,8 @@ function manipParseAndReplace(element) {
     span.setAttribute('data-echo', 'справка ' + id);
     span.textContent = label;
 
-    const replacement = '&nbsp;'.repeat(spaceBegin) + span.outerHTML + '&nbsp;'.repeat(spaceEnd);
+    const replacement =
+      '&nbsp;'.repeat(spaceBegin) + span.outerHTML + '&nbsp;'.repeat(spaceEnd);
     hhEl.outerHTML = replacement;
   });
 
@@ -303,7 +306,7 @@ function manipParseAndReplace(element) {
     result.className = 'dropdown-norelative';
     result.appendChild(toggle);
     result.appendChild(menu);
-    
+
     // Initialize Bootstrap 5 dropdown programmatically
     setTimeout(() => {
       if (window.bootstrap && window.bootstrap.Dropdown) {
@@ -313,7 +316,7 @@ function manipParseAndReplace(element) {
         }
       }
     }, 0);
-    
+
     mEl.parentNode.replaceChild(result, mEl);
   });
 }

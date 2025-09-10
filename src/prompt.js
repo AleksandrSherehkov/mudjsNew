@@ -1,18 +1,26 @@
 import 'devbridge-autocomplete';
 
 document.addEventListener('DOMContentLoaded', function () {
-  // Обработка клика по элементам с data-hint
-  document.body.addEventListener('click', function (e) {
-    if (e.target.hasAttribute('data-hint')) {
-      const modalElement = document.getElementById(e.target.getAttribute('data-hint'));
+  // Открытие подсказочных модалок по клику (работает и по вложенным узлам)
+  document.body.addEventListener(
+    'click',
+    function (e) {
+      const trigger = e.target.closest('[data-hint]');
+      if (!trigger) return;
+
+      const idOrSelector = trigger.getAttribute('data-hint') || '';
+      const modalId = idOrSelector.startsWith('#')
+        ? idOrSelector.slice(1)
+        : idOrSelector;
+
+      const modalElement = document.getElementById(modalId);
       if (modalElement && window.bootstrap && window.bootstrap.Modal) {
-        const modal = new window.bootstrap.Modal(modalElement);
-        modal.toggle();
+        e.preventDefault(); // чтобы не "проваливаться" по ссылкам и т.п.
+        new window.bootstrap.Modal(modalElement).toggle();
       }
-      e.stopPropagation();
-      e.preventDefault();
-    }
-  });
+    },
+    { passive: false }
+  );
 
   // Слушаем события от сервера и обновляем глобальный mudprompt
   const rpcEvents = document.getElementById('rpc-events');

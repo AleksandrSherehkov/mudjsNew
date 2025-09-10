@@ -100,26 +100,35 @@ document.addEventListener('DOMContentLoaded', function () {
   var terminalFontSizeKey = 'terminalFontSize';
 
   function changeFontSize(delta) {
-    var terminal = document.querySelector('.terminal');
+    const terminal = document.querySelector('.terminal');
     if (!terminal) return;
     
-    var currentFontSize = parseFloat(getComputedStyle(terminal).fontSize);
-    var newFontSize = currentFontSize + delta;
+    const currentFontSize = parseFloat(getComputedStyle(terminal).fontSize);
+    const newFontSize = Math.max(8, Math.min(32, currentFontSize + delta)); // Limit font size between 8px and 32px
     terminal.style.fontSize = newFontSize + 'px';
     localStorage.setItem(terminalFontSizeKey, newFontSize);
     propertiesStorage['terminalFontSize'] = newFontSize;
-    localStorage.properties = JSON.stringify(propertiesStorage);
+    
+    try {
+      localStorage.properties = JSON.stringify(propertiesStorage);
+    } catch (e) {
+      console.warn('Could not save properties to localStorage', e);
+    }
   }
 
   function initTerminalFontSize() {
-    var cacheFontSize = localStorage.properties
-      ? JSON.parse(localStorage.properties)['terminalFontSize']
-      : propertiesStorage;
-    if (cacheFontSize != null) {
-      var terminal = document.querySelector('.terminal');
-      if (terminal) {
-        terminal.style.fontSize = cacheFontSize + 'px';
+    try {
+      const cacheFontSize = localStorage.properties
+        ? JSON.parse(localStorage.properties)['terminalFontSize']
+        : propertiesStorage['terminalFontSize'];
+      if (cacheFontSize != null) {
+        const terminal = document.querySelector('.terminal');
+        if (terminal) {
+          terminal.style.fontSize = cacheFontSize + 'px';
+        }
       }
+    } catch (e) {
+      console.warn('Could not load terminal font size from localStorage', e);
     }
   }
 
@@ -142,14 +151,23 @@ document.addEventListener('DOMContentLoaded', function () {
   /* Save layout size */
   const layoutSplitters = document.querySelectorAll('.layout-splitter');
   layoutSplitters.forEach(splitter => {
-    splitter.addEventListener('click', function () {
-      propertiesStorage['terminalLayoutWidth'] =
-        document.querySelector('.terminal-wrap')?.getBoundingClientRect().width || 0;
-      propertiesStorage['panelLayoutWidth'] =
-        document.querySelector('#panel-wrap')?.getBoundingClientRect().width || 0;
-      propertiesStorage['mapLayoutWidth'] =
-        document.querySelector('#map-wrap')?.getBoundingClientRect().width || 0;
-      localStorage.properties = JSON.stringify(propertiesStorage);
-    });
+    const handleSplitterClick = function () {
+      try {
+        propertiesStorage['terminalLayoutWidth'] =
+          document.querySelector('.terminal-wrap')?.getBoundingClientRect().width || 0;
+        propertiesStorage['panelLayoutWidth'] =
+          document.querySelector('#panel-wrap')?.getBoundingClientRect().width || 0;
+        propertiesStorage['mapLayoutWidth'] =
+          document.querySelector('#map-wrap')?.getBoundingClientRect().width || 0;
+        localStorage.properties = JSON.stringify(propertiesStorage);
+      } catch (e) {
+        console.warn('Could not save layout properties to localStorage', e);
+      }
+    };
+    
+    splitter.addEventListener('click', handleSplitterClick);
+    
+    // Store reference for cleanup if needed
+    splitter._handleSplitterClick = handleSplitterClick;
   });
 });

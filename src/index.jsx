@@ -8,6 +8,7 @@ import { store } from './store.js';
 
 import './main.js'; // legacy JS
 import App from './app.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 // Создаём тему с тёмным режимом
 const theme = createTheme({
@@ -22,11 +23,13 @@ const root = createRoot(rootElement);
 
 root.render(
   <React.StrictMode>
-    <Provider store={store}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <App />
-      </ThemeProvider>
-    </Provider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <App />
+        </ThemeProvider>
+      </Provider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

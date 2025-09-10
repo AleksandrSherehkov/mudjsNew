@@ -7,7 +7,7 @@ import Terminal from './terminal';
 
 import { send } from '../websock';
 
-const OverlayCell = ({ ariaLabel, ariaHidden, children, ...props }) => {
+const OverlayCell = React.memo(({ ariaLabel, ariaHidden, children, ...props }) => {
   const ariaProps = {};
   if (ariaLabel) ariaProps['aria-label'] = ariaLabel;
   if (ariaHidden) ariaProps['aria-hidden'] = ariaHidden;
@@ -27,11 +27,12 @@ const OverlayCell = ({ ariaLabel, ariaHidden, children, ...props }) => {
       </button>
     </td>
   );
-};
+});
+OverlayCell.displayName = 'OverlayCell';
 
 const longPressDelay = 800;
 
-const KeypadCell = ({ cmd, longCmd, children, ...props }) => {
+const KeypadCell = React.memo(({ cmd, longCmd, children, ...props }) => {
   let btnTimer = null;
   let wasLongPress = false;
 
@@ -45,7 +46,10 @@ const KeypadCell = ({ cmd, longCmd, children, ...props }) => {
   };
 
   const touchend = () => {
-    if (btnTimer) clearTimeout(btnTimer);
+    if (btnTimer) {
+      clearTimeout(btnTimer);
+      btnTimer = null;
+    }
   };
 
   const click = e => {
@@ -70,9 +74,10 @@ const KeypadCell = ({ cmd, longCmd, children, ...props }) => {
       {children}
     </OverlayCell>
   );
-};
+});
+KeypadCell.displayName = 'KeypadCell';
 
-const Keypad = () => {
+const Keypad = React.memo(() => {
   const theme = useTheme();
   const big = useMediaQuery(theme.breakpoints.up('sm'));
 
@@ -83,47 +88,48 @@ const Keypad = () => {
       <tr aria-hidden="true">
         <td></td>
         <td></td>
-        <KeypadCell cmd="scan">
+        <KeypadCell cmd="scan" aria-label="Сканировать">
           <i className="fa fa-fw fa-refresh"></i>
         </KeypadCell>
-        <KeypadCell cmd="n" longCmd="отпер север|откр север">
+        <KeypadCell cmd="n" longCmd="отпер север|откр север" aria-label="Север">
           <span>N</span>
         </KeypadCell>
-        <KeypadCell cmd="u" longCmd="отпер вверх|откр вверх">
+        <KeypadCell cmd="u" longCmd="отпер вверх|откр вверх" aria-label="Вверх">
           <span>U</span>
         </KeypadCell>
       </tr>
       <tr aria-hidden="true">
         <td></td>
         <td></td>
-        <KeypadCell cmd="w" longCmd="отпер запад|откр запад">
+        <KeypadCell cmd="w" longCmd="отпер запад|откр запад" aria-label="Запад">
           <span>W</span>
         </KeypadCell>
-        <KeypadCell cmd="l">
+        <KeypadCell cmd="l" aria-label="Смотреть">
           <i className="fa fa-fw fa-eye"></i>
         </KeypadCell>
-        <KeypadCell cmd="e" longCmd="отпер восток|откр восток">
+        <KeypadCell cmd="e" longCmd="отпер восток|откр восток" aria-label="Восток">
           <span>E</span>
         </KeypadCell>
       </tr>
       <tr aria-hidden="true">
         <td></td>
         <td></td>
-        <KeypadCell cmd="where">
+        <KeypadCell cmd="where" aria-label="Где">
           <i className="fa fa-fw fa-map-marker"></i>
         </KeypadCell>
-        <KeypadCell cmd="s" longCmd="отпер юг|откр юг">
+        <KeypadCell cmd="s" longCmd="отпер юг|откр юг" aria-label="Юг">
           <span>S</span>
         </KeypadCell>
-        <KeypadCell cmd="d" longCmd="отпер вниз|откр вниз">
+        <KeypadCell cmd="d" longCmd="отпер вниз|откр вниз" aria-label="Вниз">
           <span>D</span>
         </KeypadCell>
       </tr>
     </>
   );
-};
+});
+Keypad.displayName = 'Keypad';
 
-const Overlay = ({ unread, onScrollToBottom }) => {
+const Overlay = React.memo(({ unread, onScrollToBottom }) => {
   return (
     <Box
       sx={{
@@ -142,28 +148,30 @@ const Overlay = ({ unread, onScrollToBottom }) => {
           top: 0,
           margin: '0.5em',
         }}
+        role="toolbar"
+        aria-label="Навигационные элементы управления"
       >
         <tbody>
           <tr>
-            <OverlayCell id="logs-button" ariaLabel="логи" ariaHidden="true">
+            <OverlayCell id="logs-button" ariaLabel="Скачать логи" ariaHidden="false">
               <i className="fa fa-download"></i>
             </OverlayCell>
             <OverlayCell
               id="settings-button"
               data-bs-toggle="modal"
               data-bs-target="#settings-modal"
-              ariaLabel="настройки"
+              ariaLabel="Открыть настройки"
               ariaHidden="false"
             >
               <i className="fa fa-cog"></i>
             </OverlayCell>
-            <OverlayCell id="map-button" ariaLabel="карта" ariaHidden="true">
+            <OverlayCell id="map-button" ariaLabel="Открыть карту" ariaHidden="false">
               <i className="fa fa-map"></i>
             </OverlayCell>
-            <OverlayCell id="font-plus-button" ariaHidden="true">
+            <OverlayCell id="font-plus-button" ariaLabel="Увеличить шрифт" ariaHidden="false">
               <i className="fa fa-plus"></i>
             </OverlayCell>
-            <OverlayCell id="font-minus-button" ariaHidden="true">
+            <OverlayCell id="font-minus-button" ariaLabel="Уменьшить шрифт" ariaHidden="false">
               <i className="fa fa-minus"></i>
             </OverlayCell>
           </tr>
@@ -182,13 +190,15 @@ const Overlay = ({ unread, onScrollToBottom }) => {
             bottom: 0,
             margin: '0.5em',
           }}
+          aria-label={`${unread} непрочитанных сообщений, нажмите для прокрутки вниз`}
         >
           <span>{`${unread} unread message${unread > 1 ? 's' : ''}`}</span>
         </button>
       )}
     </Box>
   );
-};
+});
+Overlay.displayName = 'Overlay';
 
 export default function MainWindow() {
   const terminal = useRef();

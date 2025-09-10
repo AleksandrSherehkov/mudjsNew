@@ -174,7 +174,7 @@
   }
   function shoot(where) {
     // примеры:
-    // safeSend('стрелять ' + where + ' ' + victim);
+    safeSend('стрелять ' + where + ' ' + victim);
     // safeSend("к 'стен клинк' " + where + '.' + victim);
   }
   function dir(d, e) {

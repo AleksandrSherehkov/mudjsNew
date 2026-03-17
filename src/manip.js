@@ -1,4 +1,4 @@
-import $ from 'jquery';
+// D:\GitHub\mudjsNew\src\manip.js
 import areasJson from './data/areas.json';
 import { send, ws } from './websock.js';
 import { echo } from './input.js';
@@ -6,79 +6,107 @@ import { echo } from './input.js';
 // Create the list of all possible area file names (without ".are" bit).
 const areas = areasJson.map(a => a.file.replace('.are', ''));
 
-$(document).ready(function () {
-  // Control panel buttons.
-  $('body').on('click', '.btn-ctrl-panel', function (e) {
-    var cmd = $(e.currentTarget).attr('data-action');
-    var conf = $(e.currentTarget).attr('data-confirm');
+// Кнопки панели управления (у них класс .btn-ctrl-panel)
+document.body.addEventListener('click', function (e) {
+  const btn = e.target.closest('.btn-ctrl-panel');
+  if (!btn) return;
 
-    if (
-      conf !== undefined &&
-      !window.confirm('Вы действительно хотите ' + conf + '?')
-    )
+  const cmd = btn.getAttribute('data-action') || '';
+  const conf = btn.getAttribute('data-confirm');
+
+  if (btn.hasAttribute('data-confirm')) {
+    if (!window.confirm(`Вы действительно хотите ${conf}?`)) {
+      e.preventDefault();
+      e.stopPropagation();
       return;
+    }
+  }
 
+  if (cmd) {
     echo(cmd);
     send(cmd);
-  });
+  }
 
-  // Send comman to the server when command hyper link is clicked
-  // e. g. 'read sign' or 'walk trap'.
-  $('body').on('click', '.manip-cmd', function (e) {
-    var cmd = $(e.currentTarget);
-    echo(cmd.attr('data-echo'));
-    send(cmd.attr('data-action'));
-  });
+  e.preventDefault();
+  e.stopPropagation();
+});
 
-  // Send command to the server when individual menu item is clicked.
-  $('body').on('click', '.manip-item', function (e) {
-    var cmd = $(e.currentTarget);
-    echo(cmd.attr('data-echo'));
-    send(cmd.attr('data-action'));
-  });
+// Клик по «командам» внутри текста (например, умения, справка и т.п.)
+// Раньше это делал jQuery делегированием; теперь используем closest()
+document.body.addEventListener('click', function (e) {
+  const el = e.target.closest('.manip-cmd');
+  if (!el) return;
 
-  // Underline current selection when dropdown is shown.
-  $('body').on('show.bs.dropdown', '.dropdown', function (e) {
-    $(e.relatedTarget).css('text-decoration', 'underline');
-  });
+  const action = el.getAttribute('data-action') || '';
+  const echoTxt = el.getAttribute('data-echo') || action;
 
-  // Remove underline when dropdown is hidden.
-  $('body').on('hide.bs.dropdown', '.dropdown', function (e) {
-    $(e.relatedTarget).removeAttr('style');
-  });
+  if (echoTxt) echo(echoTxt);
+  if (action) send(action);
+
+  e.preventDefault();
+  e.stopPropagation();
+});
+
+// Клик по пунктам выпадающих меню предметов (.manip-item)
+document.body.addEventListener('click', function (e) {
+  const el = e.target.closest('.manip-item');
+  if (!el) return;
+
+  const action = el.getAttribute('data-action') || '';
+  const echoTxt = el.getAttribute('data-echo') || action;
+
+  if (echoTxt) echo(echoTxt);
+  if (action) send(action);
+
+  e.preventDefault();
+  e.stopPropagation();
+});
+
+// Подчёркивание текущего выбора при открытии dropdown (Bootstrap 5)
+document.body.addEventListener('show.bs.dropdown', function (e) {
+  if (e.target.classList.contains('dropdown') && e.relatedTarget) {
+    e.relatedTarget.style.textDecoration = 'underline';
+  }
+});
+
+// Снять подчёркивание при закрытии dropdown (Bootstrap 5)
+document.body.addEventListener('hide.bs.dropdown', function (e) {
+  if (e.target.classList.contains('dropdown') && e.relatedTarget) {
+    e.relatedTarget.removeAttribute('style');
+  }
 });
 
 // Replace colour "<c c='fgbr'/>" tags coming from the server with spans.
-function colorParseAndReplace(span) {
-  span.find('c').each(function () {
-    var style = $(this).attr('c');
-    $(this).replaceWith(function () {
-      var result = $('<span/>').append($(this).contents());
-      result.addClass(style);
-      return result;
-    });
+function colorParseAndReplace(element) {
+  const cElements = element.querySelectorAll('c');
+  cElements.forEach(function (cEl) {
+    const style = cEl.getAttribute('c');
+    const span = document.createElement('span');
+    span.className = style || '';
+    while (cEl.firstChild) span.appendChild(cEl.firstChild);
+    cEl.parentNode.replaceChild(span, cEl);
   });
 }
 
-function manipParseAndReplace(span) {
+function manipParseAndReplace(element) {
   // Replace placeholders [map=filename.are] with buttons that open a map,
   // or with an empty string, if area is not found in the areas.json.
-  var html = span
-    .html()
-    .replace(/\[map=([-0-9a-z_]{1,15})\.are\]/g, function (match, p1) {
+  let html = element.innerHTML.replace(
+    /\[map=([-0-9a-z_]{1,15})\.are\]/g,
+    function (_match, p1) {
       if (areas.indexOf(p1) === -1) return '';
       return (
         '<a class="btn btn-sm btn-outline-info btn-orange" href="https://dreamland.rocks/maps/' +
         p1 +
         '.html" target=_blank>открыть карту</a>'
       );
-    });
+    }
+  );
 
-  // Replace extra-description placeholders [read=sign знак,see=sign] with (<span class="manip-cmd manip-ed" data-action="read 'sign знак'">sign</span>).
-  // Returns empty string if 'see' part is not contained within 'read' part.
+  // Replace ED placeholders [read=...,see=...] -> clickable span
   html = html.replace(
     /\[read=([^,]{1,100}),see=([^\]]{1,30})]/gi,
-    function (match, p1, p2) {
+    function (_match, p1, p2) {
       if (p1.toLowerCase().split(' ').indexOf(p2.toLowerCase()) === -1)
         return '';
       return (
@@ -106,14 +134,13 @@ function manipParseAndReplace(span) {
         return string;
       }
 
-      // Replace argument placeholder.
-      var action = cmd.replace(/\$1/, see);
+      const action = cmd.replace(/\$1/, see);
 
-      // The link will only surround the message itself, spaces are not underlined.
+      // The link only surrounds the message itself (без крайних пробелов)
       return see.replace(
         /^( *)(.*[^ ])( *)$/,
-        function (match, spaceBegin, msg, spaceEnd) {
-          var label;
+        function (_m, spaceBegin, msg, spaceEnd) {
+          let label;
           switch (msg) {
             case 'edit':
               label = '<i class="fa fa-edit"></i>';
@@ -130,7 +157,6 @@ function manipParseAndReplace(span) {
               break;
             default:
               label = msg;
-              break;
           }
 
           return (
@@ -149,157 +175,131 @@ function manipParseAndReplace(span) {
     }
   );
 
-  span.html(html);
+  element.innerHTML = html;
 
-  // Replace "<hc>command</hc>" tags surrounding commands to send as is.
-  span.find('hc').each(function () {
-    var cmd = $(this).contents();
-
-    $(this).replaceWith(function () {
-      var action = cmd.text();
-      var result = $('<span/>')
-        .addClass('manip-cmd')
-        .attr('data-action', action)
-        .attr('data-echo', action)
-        .append(cmd);
-      return result;
-    });
+  // "<hc>command</hc>" -> clickable command
+  const hcElements = element.querySelectorAll('hc');
+  hcElements.forEach(function (hcEl) {
+    const cmd = hcEl.textContent;
+    const span = document.createElement('span');
+    span.className = 'manip-cmd';
+    span.setAttribute('data-action', cmd);
+    span.setAttribute('data-echo', cmd);
+    while (hcEl.firstChild) span.appendChild(hcEl.firstChild);
+    hcEl.parentNode.replaceChild(span, hcEl);
   });
 
-  // Replace "<hl>hyper link</hl>" tags surrounding hyper links.
-  // Basic sanitization of the links.
-  span.find('hl').each(function () {
-    var content = $(this).contents();
-    var href = content.text();
+  // "<hl>http...</hl>" -> link (sanitized)
+  const hlElements = element.querySelectorAll('hl');
+  hlElements.forEach(function (hlEl) {
+    const href = hlEl.textContent;
     if (!href.startsWith('http')) return;
-
-    $(this).replaceWith(function () {
-      var result = $('<a target=_blank />')
-        .addClass('manip-link')
-        .attr('href', href)
-        .append(content);
-      return result;
-    });
+    const link = document.createElement('a');
+    link.className = 'manip-link';
+    link.setAttribute('href', href);
+    link.setAttribute('target', '_blank');
+    while (hlEl.firstChild) link.appendChild(hlEl.firstChild);
+    hlEl.parentNode.replaceChild(link, hlEl);
   });
 
-  // Replace "<hh>article name</hh>" or "<hh id='333'>" tags surrounding help articles.
-  span.find('hh').each(function () {
-    var article = $(this).contents().text();
-    var id = $(this).attr('id') || article;
+  // "<hh>article</hh>" -> help link
+  const hhElements = element.querySelectorAll('hh');
+  hhElements.forEach(function (hhEl) {
+    const article = hhEl.textContent;
+    const id = hhEl.getAttribute('id') || article;
+    const matches = article.match(/^( *)([\0-\uFFFF]*[^ ])( *)$/m);
+    if (!matches || matches.length < 4) return;
 
-    // Split the string into <initial spaces><label ending with non-space><ending spaces>
-    var matches = article.match(/^( *)([\0-\uFFFF]*[^ ])( *)$/m);
-    if (!matches || matches.length < 4) {
-      // Do nothing for invalid help links.
-      return;
-    }
+    const spaceBegin = matches[1].length;
+    const spaceEnd = matches[3].length;
+    const label = matches[2];
 
-    var spaceBegin = matches[1].length;
-    var spaceEnd = matches[3].length;
-    var label = matches[2];
+    const span = document.createElement('span');
+    span.className = 'manip-cmd manip-link';
+    span.setAttribute('data-action', 'help ' + id);
+    span.setAttribute('data-echo', 'справка ' + id);
+    span.textContent = label;
 
-    $(this).replaceWith(function () {
-      // Recreate initial and ending spaces as nbsp, so that the underlining link only surrounds the label.
-      var result =
-        '&nbsp;'.repeat(spaceBegin) +
-        $('<span/>')
-          .addClass('manip-cmd')
-          .addClass('manip-link')
-          .attr('data-action', 'help ' + id)
-          .attr('data-echo', 'справка ' + id)
-          .append(label)
-          .get(0).outerHTML +
-        '&nbsp;'.repeat(spaceEnd);
-      return result;
-    });
+    const replacement =
+      '&nbsp;'.repeat(spaceBegin) + span.outerHTML + '&nbsp;'.repeat(spaceEnd);
+    hhEl.outerHTML = replacement;
   });
 
-  // Replace "<hg>skill group</hg>" tags surrounding group names.
-  span.find('hg').each(function () {
-    var article = $(this).contents();
-
-    $(this).replaceWith(function () {
-      var result = $('<span/>')
-        .addClass('manip-cmd')
-        .attr('data-action', 'glist ' + article.text())
-        .attr('data-echo', 'группаумен ' + article.text())
-        .append(article);
-      return result;
-    });
+  // "<hg>skill group</hg>" -> glist link
+  const hgElements = element.querySelectorAll('hg');
+  hgElements.forEach(function (hgEl) {
+    const article = hgEl.textContent;
+    const span = document.createElement('span');
+    span.className = 'manip-cmd';
+    span.setAttribute('data-action', 'glist ' + article);
+    span.setAttribute('data-echo', 'группаумен ' + article);
+    while (hgEl.firstChild) span.appendChild(hgEl.firstChild);
+    hgEl.parentNode.replaceChild(span, hgEl);
   });
 
-  // Replace "<hs>speedwalk</hs>" tags with 'run speedwalk' command.
-  span.find('hs').each(function () {
-    var article = $(this).contents();
-
-    $(this).replaceWith(function () {
-      var result = $('<span/>')
-        .addClass('manip-cmd')
-        .addClass('manip-speedwalk')
-        .attr('data-action', 'run ' + article.text())
-        .attr('data-echo', 'бежать ' + article.text())
-        .append(article);
-      return result;
-    });
+  // "<hs>speedwalk</hs>" -> run speedwalk
+  const hsElements = element.querySelectorAll('hs');
+  hsElements.forEach(function (hsEl) {
+    const article = hsEl.textContent;
+    const span = document.createElement('span');
+    span.className = 'manip-cmd manip-speedwalk';
+    span.setAttribute('data-action', 'run ' + article);
+    span.setAttribute('data-echo', 'бежать ' + article);
+    while (hsEl.firstChild) span.appendChild(hsEl.firstChild);
+    hsEl.parentNode.replaceChild(span, hsEl);
   });
 
-  // Replace item manipulation "<m i='234234' c='take $,put $ 12348'/>" tags surrounding every item.
-  span.find('m').each(function () {
-    // Populate menu node for each item based on the 'c' and 'l' attributes containing command lists.
-    // Mark menu nodes so that they can be removed and not mess up the triggers.
-    var id = $(this).attr('i');
-    var menu = $('<span class="dropdown-menu no-triggers" />');
+  // "<m i='..' c='..' l='..'/>" -> выпадающее меню для предмета
+  const mElements = element.querySelectorAll('m');
+  mElements.forEach(function (mEl) {
+    const id = mEl.getAttribute('i');
+    const menu = document.createElement('span');
+    menu.className = 'dropdown-menu no-triggers';
 
     function addToMenu(cmd) {
       if (cmd.trim().length === 0) return;
-      var action = cmd.replace(/\$/, id);
-      // Menu entry visible to the user will only contain a meaningful word, without IDs or $ placeholders.
-      var label = cmd.replace(/( *\$ *| *[0-9]{5,}|\.'.*')/g, '');
-      menu.append(
-        $('<a/>')
-          .addClass('dropdown-item')
-          .addClass('manip-item')
-          .attr('data-action', action)
-          .attr('href', '#')
-          .append(label)
-      );
+      const action = cmd.replace(/\$/, id);
+      const label = cmd.replace(/( *\$ *| *[0-9]{5,}|\.'.*')/g, '');
+      const link = document.createElement('a');
+      link.className = 'dropdown-item manip-item';
+      link.setAttribute('data-action', action);
+      link.setAttribute('href', '#');
+      link.textContent = label;
+      menu.appendChild(link);
     }
 
-    // Main commands above the divider.
-    if (this.hasAttribute('c'))
-      $(this)
-        .attr('c')
-        .split(',')
-        .map(function (cmd) {
-          addToMenu(cmd);
-          return cmd;
-        });
-
-    // Commands only available in this room, below the divider.
-    if (this.hasAttribute('l')) {
-      var divider = $('<div/>').addClass('dropdown-divider');
-      menu.append(divider);
-      $(this)
-        .attr('l')
-        .split(',')
-        .map(function (cmd) {
-          addToMenu(cmd);
-          return cmd;
-        });
+    if (mEl.hasAttribute('c')) {
+      const commands = mEl.getAttribute('c').split(',');
+      commands.forEach(cmd => addToMenu(cmd));
     }
 
-    // Create drop-down toggle from item description text.
-    var toggle = $(
-      '<span class="dropdown-toggle" data-toggle="dropdown"/>'
-    ).append($(this).contents());
+    if (mEl.hasAttribute('l')) {
+      const divider = document.createElement('div');
+      divider.className = 'dropdown-divider';
+      menu.appendChild(divider);
+      const localCommands = mEl.getAttribute('l').split(',');
+      localCommands.forEach(cmd => addToMenu(cmd));
+    }
 
-    // Replace '<m>' pseudo-tag with Popper dropdown markup.
-    $(this).replaceWith(function () {
-      var result = $('<span class="dropdown-norelative"/>')
-        .append(toggle)
-        .append(menu);
-      return result;
-    });
+    const toggle = document.createElement('span');
+    toggle.className = 'dropdown-toggle';
+    toggle.setAttribute('data-bs-toggle', 'dropdown');
+    while (mEl.firstChild) toggle.appendChild(mEl.firstChild);
+
+    const result = document.createElement('span');
+    result.className = 'dropdown-norelative';
+    result.appendChild(toggle);
+    result.appendChild(menu);
+
+    // Initialize Bootstrap 5 dropdown programmatically
+    setTimeout(() => {
+      if (window.bootstrap && window.bootstrap.Dropdown) {
+        const dropdownToggleEl = result.querySelector('.dropdown-toggle');
+        if (dropdownToggleEl) new window.bootstrap.Dropdown(dropdownToggleEl);
+      }
+    }, 0);
+
+    mEl.parentNode.replaceChild(result, mEl);
   });
 }
 

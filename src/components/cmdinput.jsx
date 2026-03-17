@@ -16,7 +16,7 @@ import Commands, {
   getSystemCmd,
 } from './SysCommands';
 import { sendHotKeyCmd } from './sysCommands/hotkey';
-import { setupSpeechRecognition } from '../speech';
+import { mergeSpeechTranscript, setupSpeechRecognition } from '../speech';
 import { handleSpeechCommand } from '../handleSpeechCommand';
 
 const input_history = localStorage.history
@@ -60,7 +60,7 @@ const CmdInput = () => {
         lang,
         buttonSelector: '#cmd-voice',
         onResult: transcript => {
-          setValue(prev => prev + ' ' + transcript);
+          setValue(prev => mergeSpeechTranscript(prev, transcript));
         },
         onError: e => {
           console.error('Speech error:', e.error);
@@ -110,7 +110,7 @@ const CmdInput = () => {
       onResult: transcript => {
         const wasHandled = handleSpeechCommand(transcript, setValue);
         if (!wasHandled) {
-          setValue(prev => prev + ' ' + transcript);
+          setValue(prev => mergeSpeechTranscript(prev, transcript));
         }
       },
       onError: () => {},

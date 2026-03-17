@@ -2,7 +2,7 @@ import $ from 'jquery';
 import loader from '@monaco-editor/loader';
 import 'devbridge-autocomplete';
 import { rpccmd } from './websock';
-import { setupSpeechRecognition } from './speech';
+import { mergeSpeechTranscript, setupSpeechRecognition } from './speech';
 
 let monacoEditor;
 let recognition = null;
@@ -74,7 +74,7 @@ function initVoiceRecognition(monaco) {
     buttonSelector: '#start-voice',
     onResult: transcript => {
       const currentText = monaco.getValue();
-      monaco.setValue(currentText + ' ' + transcript);
+      monaco.setValue(mergeSpeechTranscript(currentText, transcript));
     },
     onError: event => {
       console.error('Speech recognition error:', event.error);

@@ -150,8 +150,8 @@ const Overlay = ({ unread, onScrollToBottom }) => {
             </OverlayCell>
             <OverlayCell
               id="settings-button"
-              data-toggle="modal"
-              data-target="#settings-modal"
+              data-bs-toggle="modal"
+              data-bs-target="#settings-modal"
               ariaLabel="настройки"
               ariaHidden="false"
             >

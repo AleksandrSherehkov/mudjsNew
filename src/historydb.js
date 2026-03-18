@@ -30,7 +30,9 @@ function initStubHistoryDb() {
       ) {
         var v = database[id];
         f(id, v);
-        loaded += v.length;
+        if (v && v.length !== undefined) {
+          loaded += v.length;
+        }
       }
 
       return Promise.resolve(loaded);
@@ -159,7 +161,9 @@ function initIndexedHistoryDb() {
                   if (next) {
                     f(next.key, next.value);
 
-                    loaded += next.value.length;
+                    if (next.value && next.value.length !== undefined) {
+                      loaded += next.value.length;
+                    }
 
                     if (loaded < limit) {
                       next.continue();

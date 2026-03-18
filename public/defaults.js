@@ -18,8 +18,8 @@
     hunting: {
       isActive: false, // Флаг для отслеживания процесса охоты
       attackCommand: 'к вред',
-      victim: 'ханжа',
-      lootItem: 'крупица',
+      victim: 'скрипач',
+      lootItem: 'струна',
       victimLocation: '', // Местоположение жертвы
       isVictimLocationFound: false, // Флаг, что местоположение жертвы найдено
       isLocationCodeFound: false, // Флаг, что код местности найден
@@ -31,6 +31,8 @@
     training: {
       isActive: false, // Переменная для отслеживания процесса обучения
       skillToTrain: 'к щит',
+      skillDelayMs: 4000, // ручная задержка между попытками
+      lastSkillUsedAt: 0, // время последнего использования навыка
       skillCount: 0, // Счетчик выполнения навыка
       maxSkillCount: 98, // Максимальное количество повторений
       isMasteryAchieved: false, // Флаг для отслеживания достижения "мастерски владеешь"
@@ -43,7 +45,7 @@
       meltCounter: 0, // Противодействие автовыкидыванию
       lastCast: '',
       doorToBash: 'n',
-      weapon: 'разрывной',
+      weapon: 'молоток',
       foodItem: 'манна',
       sleepItem: 'кресло',
       isActionLocked: false, // Для предотвращения спама действий
@@ -53,6 +55,65 @@
 
   // Деструктуризация state для удобства доступа
   const { hunting, training, energy, general, brewing } = state;
+
+  const timers = {
+    attack: null,
+    training: null,
+    trainingUnlock: null,
+    energyRecovery: null,
+    energyWakeUp: null,
+    speech: null,
+    parse: null,
+  };
+
+  function clearTimer(name) {
+    if (timers[name]) {
+      clearTimeout(timers[name]);
+      timers[name] = null;
+    }
+  }
+
+  function resetBrewingState() {
+    brewing.isActive = false;
+    brewing.isExhausted = false;
+  }
+
+  function resetTrainingState() {
+    training.isActive = false;
+    training.skillCount = 0;
+    training.isMasteryAchieved = false;
+    training.isStarPressed = false;
+
+    energy.isLow = false;
+    general.isActionLocked = false;
+
+    clearTimer('training');
+    clearTimer('trainingUnlock');
+    clearTimer('energyRecovery');
+    clearTimer('energyWakeUp');
+  }
+
+  function resetHuntingState() {
+    hunting.isActive = false;
+    hunting.victimLocation = '';
+    hunting.isVictimLocationFound = false;
+    hunting.isLocationCodeFound = false;
+    hunting.locationCode = '';
+    hunting.isInspecting = false;
+    hunting.isVictimKilled = false;
+    hunting.isInCombat = false;
+
+    clearTimer('attack');
+  }
+
+  function stopCombat(reason = 'без указания причины') {
+    if (hunting.isInCombat) {
+      console.log(`>>> Бой остановлен: ${reason}`);
+    }
+
+    hunting.isInCombat = false;
+    clearTimer('attack');
+  }
 
   const logDebug = message => {
     if (DEBUG_MODE) {
@@ -69,7 +130,7 @@
   // Универсальная функция для отправки команды с задержкой
   const delayedSendCommand = (command, delay) => {
     logDebug(`Отложенная команда: ${command} через ${delay} мс`);
-    setTimeout(() => sendCommand(command), delay);
+    return setTimeout(() => sendCommand(command), delay);
   };
 
   // Триггеры с предкомпилированными регулярными выражениями
@@ -165,15 +226,17 @@
     }
 
     const utterance = new SpeechSynthesisUtterance('Внимание! Тайфоэн!');
-    utterance.lang = 'ru-RU'; // Указываем язык
-    utterance.volume = 1; // Громкость (0.0 - 1.0)
-    utterance.rate = 1; // Скорость (0.1 - 10)
-    utterance.pitch = 1; // Высота тона (0 - 2)
+    utterance.lang = 'ru-RU';
+    utterance.volume = 1;
+    utterance.rate = 1;
+    utterance.pitch = 1;
 
-    // Попробуем дождаться завершения предыдущей речи перед началом новой
     window.speechSynthesis.cancel();
-    setTimeout(() => {
+    clearTimer('speech');
+
+    timers.speech = setTimeout(() => {
       window.speechSynthesis.speak(utterance);
+      timers.speech = null;
     }, 100);
   }
 
@@ -188,16 +251,23 @@
 
   $('#rpc-events').off('rpc-prompt.myNamespace');
   $('#rpc-events').on('rpc-prompt.myNamespace', (e, data) => {
-    console.log('RAW rpc-prompt:', data);
+    if (!DEBUG_MODE) return;
+
+    console.log('RAW rpc-prompt snapshot:', JSON.parse(JSON.stringify(data)));
+
     setTimeout(() => {
-      console.log('window.mudprompt after merge:', window.mudprompt);
+      console.log(
+        'window.mudprompt snapshot:',
+        JSON.parse(JSON.stringify(window.mudprompt || {}))
+      );
     }, 0);
   });
 
   function startBrewing() {
     console.log('>>> Начинаем варить зелье!');
     brewing.isActive = true;
-    brewing.isExhausted = false; // Сбрасываем усталость
+    brewing.isExhausted = false;
+
     sendCommand('к сотв роз');
     sendCommand('к сотв роз');
     sendCommand('бросить роз');
@@ -210,7 +280,7 @@
     if (!brewing.isActive) return;
 
     console.log('>>> Останавливаем варку зелий.');
-    brewing.isActive = false;
+    resetBrewingState();
   }
 
   let isFileDownloaded = false;
@@ -297,57 +367,110 @@
 
   function handleLowEnergy() {
     console.log('>>> Энергии не хватает, засыпаю...\n');
+
+    clearTimer('training');
+    clearTimer('trainingUnlock');
+    clearTimer('energyRecovery');
+    clearTimer('energyWakeUp');
+
     training.skillCount = 0;
-    training.isStarPressed = false; // Немедленно останавливаем цикл
-    energy.isLow = true; // Устанавливаем флаг низкой энергии
-    sendCommand('\\'); // Очищаем буфер команд
-    sendCommand(`спать ${general.sleepItem}`); //
+    training.isStarPressed = false;
+    energy.isLow = true;
+    general.isActionLocked = false;
 
-    delayedSendCommand('вст', 25000); // Через 25 секунд встаем
+    sendCommand('\\');
+    sendCommand(`спать ${general.sleepItem}`);
 
-    setTimeout(() => {
-      training.isStarPressed = true; // Снова запускаем цикл
-      energy.isLow = false; // Сбрасываем флаг низкой энергии
-      sendCommand(training.skillToTrain); // Повторно вызываем команду
-      checkMasteryAndRepeat(''); // Возобновляем проверку мастерства
-    }, 26000); // Задержка после отдыха
+    timers.energyWakeUp = setTimeout(() => {
+      sendCommand('вст');
+      timers.energyWakeUp = null;
+    }, 25000);
+
+    timers.energyRecovery = setTimeout(() => {
+      if (!training.isActive) {
+        energy.isLow = false;
+        timers.energyRecovery = null;
+        return;
+      }
+
+      training.isStarPressed = true;
+      energy.isLow = false;
+      general.isActionLocked = false;
+
+      scheduleTrainingTick(0);
+      timers.energyRecovery = null;
+    }, 26000);
+  }
+
+  function scheduleTrainingTick(delay = null) {
+    clearTimer('training');
+
+    if (!training.isActive || !training.isStarPressed || energy.isLow) {
+      return;
+    }
+
+    const actualDelay =
+      typeof delay === 'number' ? delay : training.skillDelayMs;
+
+    timers.training = setTimeout(() => {
+      runTrainingTick();
+    }, actualDelay);
+  }
+
+  function runTrainingTick() {
+    timers.training = null;
+
+    if (
+      !training.isActive ||
+      !training.isStarPressed ||
+      energy.isLow ||
+      general.isActionLocked
+    ) {
+      return;
+    }
+
+    if (training.isMasteryAchieved) {
+      resetTrainingState();
+      return;
+    }
+
+    if (training.skillCount >= training.maxSkillCount) {
+      sendCommand('\\');
+      console.log(
+        'Навык выполнен 99 раз. Очищаем буфер и выполняем команду "ум".'
+      );
+      sendCommand('ум');
+      training.skillCount = 0;
+      scheduleTrainingTick(training.skillDelayMs);
+      return;
+    }
+
+    training.lastSkillUsedAt = Date.now();
+    sendCommand(training.skillToTrain);
+    training.skillCount++;
+    logDebug(`Текущий счетчик навыка: ${training.skillCount}`);
+
+    general.isActionLocked = true;
+    clearTimer('trainingUnlock');
+    timers.trainingUnlock = setTimeout(() => {
+      general.isActionLocked = false;
+      timers.trainingUnlock = null;
+
+      if (training.isActive && training.isStarPressed && !energy.isLow) {
+        scheduleTrainingTick(training.skillDelayMs);
+      }
+    }, 300);
   }
 
   // Проверка на "мастерски владеешь" и запуск цикла повторения до выполнения
   function checkMasteryAndRepeat(text) {
-    if (general.isActionLocked || !training.isStarPressed) return;
-
     logDebug(`Функция checkMasteryAndRepeat вызвана с текстом: ${text}`);
 
     if (text.includes('мастерски владеешь')) {
       sendCommand('\\');
       console.log('Мастерство достигнуто. Очищаем буфер.');
       training.isMasteryAchieved = true;
-      training.isStarPressed = false;
-      training.isActive = false;
-      training.skillCount = 0;
-    } else if (training.skillCount >= training.maxSkillCount) {
-      sendCommand('\\'); // Очищаем буфер команд
-      console.log(
-        'Навык выполнен 99 раз. Очищаем буфер и выполняем команду "ум".'
-      );
-      sendCommand('ум'); // Выполняем команду "ум"
-      training.skillCount = 0; // Сбрасываем счетчик
-      console.log('Цикл возобновится автоматически.');
-      setTimeout(() => {
-        sendCommand(training.skillToTrain); // Снова запускаем тренировку после команды "ум"
-        checkMasteryAndRepeat(''); // Возобновляем проверку
-      }, 1000); // Небольшая задержка перед перезапуском цикла
-    } else if (!energy.isLow && !training.isMasteryAchieved) {
-      sendCommand(training.skillToTrain);
-      training.skillCount++; // Увеличиваем счетчик после каждой команды
-      logDebug(`Текущий счетчик навыка: ${training.skillCount}`); // Выводим значение счетчика
-
-      // Устанавливаем флаг блокировки действия
-      general.isActionLocked = true;
-      setTimeout(() => {
-        general.isActionLocked = false; // Разблокируем через 1 секунду
-      }, 1000); // Задержка 1 секунда
+      resetTrainingState();
     }
   }
 
@@ -402,37 +525,52 @@
   // Функция для обработки встречи с жертвой
   function handleVictimEncounter(text) {
     const victimName = hunting.victim.toLowerCase();
-    if (text.toLowerCase().includes(`${victimName} уже труп`)) {
+    const lowerText = text.toLowerCase();
+
+    if (lowerText.includes(`${victimName} уже труп`)) {
       console.log(`>>> Жертва ${hunting.victim} мертва! Останавливаем охоту.`);
       hunting.isActive = false;
       hunting.isInspecting = false;
       hunting.isVictimKilled = true;
-      hunting.isInCombat = false;
+      stopCombat('жертва уже мертва');
       sendCommand('смотр');
-    } else if (text.toLowerCase().includes(victimName)) {
+      return;
+    }
+
+    if (lowerText.includes(victimName)) {
       console.log(`>>> Жертва ${hunting.victim} тут!`);
-      if (text.toLowerCase().includes('сбегает')) {
+
+      if (lowerText.includes('сбегает')) {
         console.log('>>> Жертва пытается сбежать, продолжаем преследование...');
         sendCommand(`где ${hunting.victim}`);
-      } else {
-        console.log(`>>> Атакую жертву: ${hunting.victim}`);
-        delayedSendCommand(`${hunting.attackCommand} ${hunting.victim}`, 3000);
-        hunting.isInspecting = false;
-        hunting.isInCombat = true;
-        continueAttacking();
+        return;
       }
-    } else {
-      console.log('>>> Жертва не найдена на текущей локации.');
+
+      console.log(`>>> Атакую жертву: ${hunting.victim}`);
       hunting.isInspecting = false;
+      hunting.isInCombat = true;
+
+      clearTimer('attack');
+      timers.attack = setTimeout(() => {
+        timers.attack = null;
+        continueAttacking();
+      }, 3000);
+
+      return;
     }
+
+    console.log('>>> Жертва не найдена на текущей локации.');
+    hunting.isInspecting = false;
   }
 
   function continueAttacking() {
+    clearTimer('attack');
+
     if (!hunting.isInCombat) return;
 
     sendCommand(`${hunting.attackCommand} ${hunting.victim}`);
 
-    setTimeout(() => {
+    timers.attack = setTimeout(() => {
       continueAttacking();
     }, 3000);
   }
@@ -468,9 +606,12 @@
 
   function handleTrainingState(text) {
     if (text.includes('У тебя не хватает энергии')) {
-      handleLowEnergy(); // Вызываем правильную функцию триггера
-    } else if (training.isStarPressed && !training.isMasteryAchieved) {
-      checkMasteryAndRepeat(text); // Проверяем, достигнуто ли мастерство
+      handleLowEnergy();
+      return;
+    }
+
+    if (training.isActive && training.isStarPressed) {
+      checkMasteryAndRepeat(text);
     }
   }
 
@@ -539,20 +680,22 @@
 
     // Добавляем проверку состояния боя
     if (hunting.isInCombat) {
+      const lowerText = text.toLowerCase();
       const victimName = hunting.victim.toLowerCase();
-      if (text.toLowerCase().includes(`${victimName} уже труп`)) {
+
+      if (lowerText.includes(`${victimName} уже труп`)) {
         console.log(`>>> Жертва ${hunting.victim} мертва!`);
         sendCommand(`взять ${hunting.lootItem}`);
-        hunting.isInCombat = false; // Останавливаем атаку
-      } else if (text.toLowerCase().includes('ты не видишь здесь такого')) {
+        stopCombat('жертва убита');
+      } else if (lowerText.includes('ты не видишь здесь такого')) {
         console.log('>>> Жертва недоступна для атаки.');
-        hunting.isInCombat = false; // Останавливаем атаку
-      } else if (text.toLowerCase().includes('вы не можете сражаться')) {
+        stopCombat('жертва недоступна');
+      } else if (lowerText.includes('вы не можете сражаться')) {
         console.log('>>> Вы не можете продолжать бой.');
-        hunting.isInCombat = false; // Останавливаем атаку
-      } else if (text.toLowerCase().includes('вы умерли')) {
+        stopCombat('бой запрещен');
+      } else if (lowerText.includes('вы умерли')) {
         console.log('>>> Вы погибли.');
-        hunting.isInCombat = false; // Останавливаем атаку
+        stopCombat('персонаж погиб');
       }
     }
   });
@@ -598,6 +741,37 @@
             `>>> Поехали, вышибаем по направлению ${general.doorToBash}\n`
           );
           sendCommand(`выбить ${general.doorToBash}`);
+        },
+      },
+      {
+        cmd: '/skill',
+        handler: args => {
+          const value = args.trim();
+          if (!value) {
+            console.log(`>>> Текущий навык: ${training.skillToTrain}\n`);
+            return;
+          }
+
+          training.skillToTrain = value;
+          console.log(`>>> Навык для тренировки: ${training.skillToTrain}\n`);
+        },
+      },
+      {
+        cmd: '/skilldelay',
+        handler: args => {
+          const value = Number(args.trim());
+
+          if (!Number.isFinite(value) || value < 300) {
+            console.log(
+              `>>> Укажи задержку в мс, например: /skilldelay 4000\n`
+            );
+            return;
+          }
+
+          training.skillDelayMs = value;
+          console.log(
+            `>>> Задержка тренировки установлена: ${training.skillDelayMs} мс\n`
+          );
         },
       },
     ];
@@ -780,8 +954,10 @@
   ];
 
   function handleBuffs() {
+    const prompt = window.mudprompt || {};
+
     buffs.forEach(({ prop, value, command }) => {
-      const promptProp = mudprompt[prop];
+      const promptProp = prompt[prop];
       if (promptProp === 'none' || !promptProp?.a?.includes(value)) {
         sendCommand(command);
       }
@@ -847,18 +1023,26 @@
         }
         break;
       case KeyCodes.NumpadAdd:
+        console.log(
+          `>>> Старт тренировки: ${training.skillToTrain}, задержка ${training.skillDelayMs} мс`
+        );
+        clearTimer('training');
+        clearTimer('trainingUnlock');
+        clearTimer('energyRecovery');
+        clearTimer('energyWakeUp');
+
         training.isActive = true;
         training.isStarPressed = true;
         training.isMasteryAchieved = false;
         training.skillCount = 0;
-        sendCommand(training.skillToTrain);
-        checkMasteryAndRepeat('');
+        energy.isLow = false;
+        general.isActionLocked = false;
+
+        scheduleTrainingTick(0);
         e.preventDefault();
         break;
       case KeyCodes.NumpadSubtract:
-        training.isStarPressed = false;
-        training.isActive = false;
-        training.skillCount = 0;
+        resetTrainingState();
         console.log('Цикл остановлен при нажатии минуса');
         e.preventDefault();
         break;
@@ -874,10 +1058,8 @@
         e.preventDefault();
         break;
       case KeyCodes.NumpadMultiply:
+        resetHuntingState();
         hunting.isActive = true;
-        hunting.isVictimLocationFound = false;
-        hunting.isLocationCodeFound = false;
-        hunting.isInspecting = false;
         sendCommand(`где ${hunting.victim}`);
         console.log('Отправлена команда "где victim".');
         e.preventDefault();

@@ -81,21 +81,42 @@ const CmdInput = () => {
       const input = $('#input input');
       if ($('body.modal-open').length !== 0) return;
 
+      const isNumpad9 = e.code === 'Numpad9';
+      const isNumpad3 = e.code === 'Numpad3';
+      const isRealPageUp = e.code === 'PageUp';
+      const isRealPageDown = e.code === 'PageDown';
+
+      if (isNumpad9 || isNumpad3 || isRealPageUp || isRealPageDown) {
+        e.preventDefault();
+      }
+
       if (!sendHotKeyCmd(e)) {
         if (e.ctrlKey || e.altKey) return;
         if (input.is(':focus') || $('#help input').is(':focus')) return;
 
         if (document.getElementById('inputBox')) {
           textInput.current.focus();
-          document
-            .getElementById('inputBox')
-            .dispatchEvent(new KeyboardEvent('keydown', e));
+
+          document.getElementById('inputBox').dispatchEvent(
+            new KeyboardEvent('keydown', {
+              key: e.key,
+              code: e.code,
+              location: e.location,
+              repeat: e.repeat,
+              ctrlKey: e.ctrlKey,
+              shiftKey: e.shiftKey,
+              altKey: e.altKey,
+              metaKey: e.metaKey,
+              bubbles: true,
+              cancelable: true,
+            })
+          );
         }
       }
     };
 
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    globalThis.addEventListener('keydown', handleKey);
+    return () => globalThis.removeEventListener('keydown', handleKey);
   }, []);
 
   useEffect(() => {
@@ -176,31 +197,39 @@ const CmdInput = () => {
   const keydown = e => {
     if (e.ctrlKey && e.code === 'KeyM') {
       e.preventDefault();
-
       startSpeech();
       return;
     }
+
     e.stopPropagation();
+
     const isPgKeysScroll = localStorage.properties
       ? JSON.parse(localStorage.properties)['isPgKeysScroll']
       : true;
 
+    const isRealPageUp = e.code === 'PageUp';
+    const isRealPageDown = e.code === 'PageDown';
+    const isNumpad9 = e.code === 'Numpad9';
+    const isNumpad3 = e.code === 'Numpad3';
+
+    if (isNumpad9 || isNumpad3) {
+      e.preventDefault();
+    }
+
     if (!e.shiftKey && !e.ctrlKey && !e.altKey) {
+      if (isPgKeysScroll && isRealPageUp) {
+        e.preventDefault();
+        scrollPage(-0.8);
+        return;
+      }
+
+      if (isPgKeysScroll && isRealPageDown) {
+        e.preventDefault();
+        scrollPage(0.8);
+        return;
+      }
+
       switch (e.which) {
-        case 33:
-          if (isPgKeysScroll) {
-            e.preventDefault();
-            scrollPage(-0.8);
-            return;
-          }
-          break;
-        case 34:
-          if (isPgKeysScroll) {
-            e.preventDefault();
-            scrollPage(0.8);
-            return;
-          }
-          break;
         case 38:
           e.preventDefault();
           historyUp();
